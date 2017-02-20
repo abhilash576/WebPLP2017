@@ -21,18 +21,10 @@ public class PLPASMImage implements ASMImage
 		this.disAssem = disAssem;
 	}
 	
-	//@Override
-	//override removed by Sumeet
+	@Override
 	public List<Pair<ASMInstruction, ASMDisassembly>> getDisassemblyInfo()
 	{
 		return disAssem;
-	}
-
-	@Override
-	public BiDirectionalOneToManyMap<ASMInstruction, ? extends ASMDisassembly> getAssemblyDisassemblyMap() {
-		// TODO Auto-generated method stub
-		System.out.println("Sumeet added it. It is empty right now. ");
-		return null;
 	}
 	
 	//private final BiDirectionalOneToManyMap<ASMInstruction, ? extends ASMDisassembly> assemblyToDisassemblyMap;

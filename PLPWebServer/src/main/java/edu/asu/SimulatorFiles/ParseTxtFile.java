@@ -12,7 +12,7 @@ import java.io.*;
 
 
 public class ParseTxtFile {
-	static String path = "C:/Users/sjjai/Desktop/PLP/Plp-sample-proj/DisassemblyOfFile.txt";
+	static String path = "/Users/Abhilash/Downloads/DisassemblyOfFile.txt";
 	static DummySim sim = new DummySim();
 	
 	public static void mainfunc() throws IOException {

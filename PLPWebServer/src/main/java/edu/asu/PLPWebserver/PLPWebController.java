@@ -6,8 +6,14 @@ package edu.asu.PLPWebserver;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.*;
 
 import javax.servlet.http.HttpServletRequest;
+
+import edu.asu.plp.tool.backend.isa.*;
+import edu.asu.plp.tool.backend.isa.exceptions.AssemblerException;
+import edu.asu.plp.tool.backend.plpisa.assembler2.*;
+
 
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -21,6 +27,7 @@ import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import edu.asu.SimulatorFiles.*;
 import edu.asu.plp.tool.backend.plpisa.sim.*;
+import edu.asu.plp.tool.prototype.model.Project;
 
 
 /**
@@ -31,7 +38,7 @@ import edu.asu.plp.tool.backend.plpisa.sim.*;
 @RestController
 public class PLPWebController {
 	
-	String fileStoragePath = "E:/PLP/PLP-Simulator/";
+	String fileStoragePath = "/Users/abhilash/Plpprogms/";
 
 	@RequestMapping("/register")
 	@CrossOrigin
@@ -85,12 +92,28 @@ public class PLPWebController {
     
     @RequestMapping(value = "/assembleText" , method = RequestMethod.POST)
     @CrossOrigin
-    public String assembleText(@RequestBody String textval) {
+    public String assembleText(@RequestBody String textval) throws AssemblerException {
+    	
+    	
     	System.out.println("in assemble");
     	String response = "";
     	
     	String code = textval;
+    	
+    	WebASMFile asmFile = new WebASMFile(code, "main.asm");
     	System.out.println("code: " + code);
+    	asmFile.setContent(code);
+    	List<ASMFile> listASM = new ArrayList<ASMFile>();
+    	listASM.add(asmFile);
+    	
+    	Assembler assembler = new PLPAssembler();
+    	
+    	ASMImage image = assembler.assemble(listASM);
+    	
+    	System.out.println("IMAGE:    " + image);
+    	
+    	System.out.println(image.getDisassemblyInfo());
+    	
     	
     	response = "{\"status\":\"ok\"}";
     	return response;

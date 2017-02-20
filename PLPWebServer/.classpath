@@ -30,10 +30,10 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="C:/Users/sjjai/Desktop/PLP/plpAssembler2Sim.jar"/>
 	<classpathentry kind="src" path="/plp-backend"/>
-	<classpathentry kind="lib" path="E:/EclipseWorkspace/plpTool-prototype-master/lib/lexer.jar"/>
-	<classpathentry kind="lib" path="E:/EclipseWorkspace/plpTool-prototype-master/lib/PLPToolStatic.jar"/>
-	<classpathentry kind="lib" path="E:/EclipseWorkspace/plpTool-prototype-master/lib/guava-18.0.jar"/>
+	<classpathentry kind="lib" path="/Users/abhilash/Downloads/plpAssembler2Sim.jar"/>
+	<classpathentry kind="lib" path="/plp-backend/lib/guava-18.0.jar" sourcepath="/plp-backend/lib/guava-18.0.jar"/>
+	<classpathentry kind="lib" path="/plp-backend/lib/lexer.jar"/>
+	<classpathentry kind="lib" path="/plp-backend/lib/PLPToolStatic.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

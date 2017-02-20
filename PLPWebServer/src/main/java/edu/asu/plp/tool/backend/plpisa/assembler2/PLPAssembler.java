@@ -199,7 +199,7 @@ public class PLPAssembler implements Assembler
 		//2nd Step Preprocess - Take care of syntax errors, symbol table, assembler directives, pseudoOperations, comments and empty lines
 		for (ASMFile asmFile : asmFiles)
 		{
-			projectPath = asmFile.getProject().getPath();
+			//projectPath = asmFile.getProject().getPath();			//commented
 			currentFile = asmFile;
 			preprocessFile(asmFile.getContent(), asmFile);
 		}
@@ -466,7 +466,16 @@ public class PLPAssembler implements Assembler
 		}
 		catch(Exception exp)
 		{
-			
+			System.out.println("EXCEPTION: "+ exp);
+		}
+		
+		System.out.println("Check:: ");
+		
+		for(String s : lineNumAndAsmFileMap.keySet()){
+			HashMap<Integer, String> temp = lineNumAndAsmFileMap.get(s);
+			for(int i : temp.keySet()){
+				System.out.println(s + " : " + i + " :: " + temp.get(i));
+			}
 		}
 		
 	}
