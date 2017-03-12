@@ -492,7 +492,7 @@ public class PLPAssembler implements Assembler
 		return disassembly;
 	}
 	
-	private Argument[] parseArguments(String[] argumentStrings) throws ParseException, AssemblyException
+	private Argument[] parseArguments(String[] argumentStrings) throws ParseException, AssemblerException
 	{
 		int size = argumentStrings.length;
 		Argument[] arguments = new Argument[size];
@@ -507,7 +507,7 @@ public class PLPAssembler implements Assembler
 		return arguments;
 	}
 	
-	private Argument parseArgument(String argumentString) throws ParseException, AssemblyException
+	private Argument parseArgument(String argumentString) throws ParseException, AssemblerException
 	{
 		argumentString = argumentString.trim();
 		if(argumentString.startsWith(ASM__HIGH__))
@@ -968,7 +968,7 @@ public class PLPAssembler implements Assembler
 		{
 			currentAddress = ISAUtil.sanitize32bits(currentToken.getValue());
 		}
-		catch (AssemblyException e)
+		catch (AssemblerException e)
 		{
 			e.printStackTrace();
 		}
@@ -1005,7 +1005,7 @@ public class PLPAssembler implements Assembler
 			//byteSpace += 4 * size;
 			
 		}
-		catch (AssemblyException e)
+		catch (AssemblerException e)
 		{
 			e.printStackTrace();
 		}
@@ -1150,7 +1150,7 @@ public class PLPAssembler implements Assembler
 			if (currentAddress < 0)
 				throw new AssemblerException("Line Number: "+ Integer.toString(lineNumber)+ " Starting address for .text is not defined.");
 		}
-		catch (AssemblyException e)
+		catch (AssemblerException e)
 		{
 			e.printStackTrace();
 		}
@@ -1184,7 +1184,7 @@ public class PLPAssembler implements Assembler
 			if (currentAddress < 0)
 				throw new AssemblerException("Line Number: "+ Integer.toString(lineNumber)+ " Starting address for .data is not defined.");
 		}
-		catch (AssemblyException e)
+		catch (AssemblerException e)
 		{
 			e.printStackTrace();
 		}
@@ -1216,7 +1216,7 @@ public class PLPAssembler implements Assembler
 		{
 			value = ISAUtil.sanitize32bits(currentToken.getValue());
 		}
-		catch (AssemblyException e)
+		catch (AssemblerException e)
 		{
 			e.printStackTrace();
 		}
