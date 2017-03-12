@@ -10,14 +10,14 @@ package edu.asu.PLPWebserver;
 public class UserSession {
 	
 	private String userName;
-	private int userSessionKey;
+	private String userSessionKey;
 	private long userLastUsedTime;
 	/**
 	 * @param userName
 	 * @param sessionKey
 	 * @param userLastUsedTime
 	 */
-	public UserSession(String userName, int sessionKey, long userLastUsedTime) {
+	public UserSession(String userName, String sessionKey, long userLastUsedTime) {
 		super();
 		this.userName = userName;
 		this.userSessionKey = sessionKey;
@@ -44,7 +44,7 @@ public class UserSession {
 	/**
 	 * @return the userSessionKey
 	 */
-	public int getUserSessionKey() {
+	public String getUserSessionKey() {
 		return userSessionKey;
 	}
 	

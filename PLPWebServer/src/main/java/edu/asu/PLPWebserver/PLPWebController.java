@@ -4,11 +4,14 @@
 package edu.asu.PLPWebserver;
 
 
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 
 import edu.asu.plp.tool.backend.isa.*;
 import edu.asu.plp.tool.backend.isa.exceptions.AssemblerException;
@@ -25,6 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import edu.asu.SimulatorFiles.*;
 import edu.asu.plp.tool.backend.plpisa.sim.*;
 import edu.asu.plp.tool.prototype.model.Project;
@@ -38,19 +44,27 @@ import edu.asu.plp.tool.prototype.model.Project;
 @RestController
 public class PLPWebController {
 	
-	String fileStoragePath = "/Users/abhilash/Plpprogms/";
+	String fileStoragePath = "C:/Users/sjjai/Desktop/PLP/";
+	HttpSession session;
 
 	@RequestMapping("/register")
 	@CrossOrigin
-	public String register(@RequestParam(value="un", defaultValue="guestUser") String un) {
-		int sessionKey;
+	public String register(@RequestParam(value="un", defaultValue="guestUser") String un, HttpServletRequest request) {
 		String response = "";
-		sessionKey = PLPUserDB.getInstance().registerNewUser(un);
-		if(sessionKey < 0){
-			response += "\"status\":\"failed\",\"session_key\":-1";
-		} else {
-			response += "\"status\":\"success\",\"session_key\":"+sessionKey;
-		}
+		String sessionKey;
+//		sessionKey = PLPUserDB.getInstance().registerNewUser(un);
+//		if(sessionKey < 0){
+//			response += "\"status\":\"failed\",\"session_key\":-1";
+//		} else {
+//			response += "\"status\":\"success\",\"session_key\":"+sessionKey;
+//		}
+		
+		session = request.getSession();
+		sessionKey = session.getId();
+		PLPUserDB.getInstance().registerNewUser(un, sessionKey);
+		if(session.isNew())
+			response += "\"status\":\"successs\",\"session_key\":\"" + sessionKey + "\"";
+		System.out.println(response);
 		return "{"+response+"}";
 	}
 
@@ -92,8 +106,7 @@ public class PLPWebController {
     
     @RequestMapping(value = "/assembleText" , method = RequestMethod.POST)
     @CrossOrigin
-    public String assembleText(@RequestBody String textval) throws AssemblerException {
-    	
+    public String assembleText(@RequestBody String textval, HttpServletRequest request, HttpSession session) throws AssemblerException, JsonProcessingException {
     	
     	System.out.println("in assemble");
     	String response = "";
@@ -112,22 +125,41 @@ public class PLPWebController {
     	
     	System.out.println("IMAGE:    " + image);
     	
-    	System.out.println(image.getDisassemblyInfo());
+    	session = this.session;
+    	System.out.println("ID: " + session.getId());
+    	
+    	session.setAttribute("ASMImage", image);
+    	
+    	//System.out.println(image.getDisassemblyInfo());
+    	
+//    	ObjectMapper mapper = new ObjectMapper();
+//    	String jsonInString = mapper.writeValueAsString(image);
+//    	System.out.println("JSON IMG STRING: " + jsonInString);
+//    	
+    	
+//    	response = "\"status\":\"ok\"";
+//    	response += ",\"asmJson\":" + jsonInString;
     	
     	
-    	response = "{\"status\":\"ok\"}";
-    	return response;
+    	
+    	return "{"+response+"}";
     }
     
     @RequestMapping(value = "/Simulator" , method = RequestMethod.GET)
     @CrossOrigin
-    public String Simulator(HttpServletRequest request) throws IOException {
+    public String Simulator(HttpServletRequest request, HttpSession session) throws IOException {
     	System.out.println("in Simulate eclipse");
     	String response = "";
     	
     	ParseTxtFile ptf = new ParseTxtFile();
-    	ptf.mainfunc();
+    	//ptf.mainfunc();
     	
+    	session = this.session;
+    	System.out.println("ID in simulate: " + session.getId());
+    	
+    	//System.out.println("ASM OBJ is Sim :"  +  session.getAttribute("ASMImage"));
+    	ASMImage image = (ASMImage) session.getAttribute("ASMImage");
+    	System.out.println("ASM OBJ is Sim :" + image);
 
     	response = "{\"status\":\"ok\"}";
     	return response;

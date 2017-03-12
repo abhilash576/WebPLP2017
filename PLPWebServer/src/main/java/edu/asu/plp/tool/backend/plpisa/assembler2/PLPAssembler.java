@@ -67,7 +67,7 @@ public class PLPAssembler implements Assembler
 	private long entryPoint;
 	//private ArrayList<Integer> regionMap;
 	
-	private String projectPath;
+	private String projectPath = "C:/Users/sjjai/Desktop/PLP/";
 	private int nInstructionInserted;
 	
 	

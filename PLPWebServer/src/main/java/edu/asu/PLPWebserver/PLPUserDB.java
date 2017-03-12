@@ -13,29 +13,29 @@ import java.util.Random;
  */
 public class PLPUserDB {
 	
-	private HashMap<Integer, UserSession> userSessionInfo;
+	private HashMap<String, UserSession> userSessionInfo;
 	public static PLPUserDB instance = null;
 	
 	private PLPUserDB(){
-		userSessionInfo = new HashMap<Integer, UserSession>();
+		userSessionInfo = new HashMap<String, UserSession>();
 	}
 	
 	/*
 	 * 
 	 */
-	public int registerNewUser(String un){
-		Random random = new Random();
-		int sessionKey =  random.nextInt(Integer.MAX_VALUE);
-		while (sessionKey >= 0 && userSessionInfo.containsKey(sessionKey)){
-			sessionKey =  random.nextInt(Integer.MAX_VALUE);
-		}
-		if (sessionKey < 0){
-			return -1;
-		} else {
+	public void registerNewUser(String un, String sessionKey){
+//		Random random = new Random();
+//		int sessionKey =  random.nextInt(Integer.MAX_VALUE);
+//		while (sessionKey >= 0 && userSessionInfo.containsKey(sessionKey)){
+//			sessionKey =  random.nextInt(Integer.MAX_VALUE);
+//		}
+//		if (sessionKey < 0){
+//			return -1;
+//		} else {
 			UserSession user = new UserSession(un, sessionKey, System.currentTimeMillis());
 			userSessionInfo.put(sessionKey, user);
-			return sessionKey;
-		}
+			//return sessionKey;
+		//}
 	}
 	
 	/*
