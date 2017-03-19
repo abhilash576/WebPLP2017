@@ -116,35 +116,43 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
     });*/
 
     $scope.inFile = null;
-
+	
     $scope.register = function() {
         $http.get("http://localhost:12345/register?un=abc")
-            .then(function(response) {
-                console.log("response for register is: "+response.data.status+"\t"+response.data.session_key);
-                if(response.data.status == "failed") {
-                    alert("Server Error\nRedirecting to Google.com");
-                    window.location.href = "https://www.google.com/";
+		.then(function(response) {
+			console.log("response for register is: "+response.data.status+"\t"+response.data.session_key);
+			if(response.data.status == "failed") {
+				alert("Server Error\nRedirecting to Google.com");
+				window.location.href = "https://www.google.com/";
                 } else {
-                    ctr = 1;
-                    str = 'sessionKey'+ctr;
-                    while($cookies.get(str)!=null){
-                        ctr+=1;
-                        str = 'sessionKey'+ctr;
-                    }
-                    $cookies.put(str,response.data.session_key);
-                }
-            });
+				/* 
+				ctr = 1;
+				str = 'sessionKey'+ctr;
+				while($cookies.get(str)!=null){
+					ctr+=1;
+					str = 'sessionKey'+ctr; 
+				}
+				*/
+				var cname = "sessionKey";
+				$cookies.put(cname,response.data.session_key
+				, {path : '/',});
+			}
+			var sessKey1 = $cookies.get("sessionKey");
+			console.log("register Session key: "  + sessKey1);
+			
 
-    };
-
+		});
+		
+	};
+	
     $scope.uploadFile = function() {
         console.log("in uploadFile");
         fileIn = $('#upfile');
         fileIn.trigger('click');
         console.log("just before return");
         return false;
-    };
-
+	};
+	
     $scope.openFile = function() {
         console.log("in openFile");
         if ((window.File!=null) && (window.FileReader!=null) && (window.FileList!=null) && (window.Blob!=null)) {
@@ -154,7 +162,7 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
             fileIn = $('#upfile');
             var f = fileIn[0].files[0];
             consoletxt = document.getElementById('console');
-
+			
             var formData = new FormData();
             formData.append("file", f);
             $http({
@@ -164,35 +172,121 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
                 data: formData,
                 transformRequest: function (data, headersGetterFunction) {
                     return data;
-                }
-            })
-                .success(function (data, status){
-                })
-                .error(function(data, status) {
-                });
-
+				}
+			})
+			.success(function (data, status){
+			})
+			.error(function(data, status) {
+			});
+			
             if (f) {
                 var r = new FileReader();
+				var textContent = r.result;
                 r.onload = function(e) {
                     var contents = e.target.result;
                     alert( "Got the file.n"
-                        +"name: " + f.name + "n"
-                        +"type: " + f.type + "n"
-                        +"size: " + f.size + " bytesn"
-                        + "starts with: " + contents.substr(1, contents.indexOf("n"))
-                        +"\n"+str
+					+"name: " + f.name + "n"
+					+"type: " + f.type + "n"
+					+"size: " + f.size + " bytesn"
+					+ "starts with: " + r.result
+					+"\n"+str
                     );
                     consoletxt.innerHTML = "\""+contents+"\"";
                     console.log(contents);
-                }
+					var editor = ace.edit("editor");
+					editor.setValue(r.result);
+				}
                 temp = r.readAsText(f);
-            } else {
+				
+				} else {
                 alert("Failed to load file");
-            }
-        } else {
+			}
+			} else {
             alert('The File APIs are not fully supported by your browser.');
-        }
-    };
+		}
+	};
+	
+	
+	
+	$scope.assembleFile = function() {
+        console.log("in assembly");
+		var editor = ace.edit("editor");
+		var codeText = editor.getValue();
+		if (!(/\S/.test(codeText))){
+			alert("Please write some code before trying to assemble.")	;
+			return;
+		}
+		console.log(codeText);
+		
+		//var jsonCode = JSON.parse(codeText);
+		var sessKey = $cookies.get('sessionKey');
+		console.log("assemble Session key: "  + sessKey);
+		var indata = {code: codeText, sessionKey: sessKey }
+		$http({
+			method: 'POST',
+			url: 'http://localhost:12345/assembleText',
+			headers: {'Content-Type': 'application/json'},
+			data: indata, 
+			
+				
+		})	
+		/*
+		.then(function successCallback(response) {
+			console.log("Success:" + JSON.stringify(response)) ;
+			// this callback will be called asynchronously
+			// when the response is available
+			}, function errorCallback(response) {
+						console.log("error");
+
+			// called asynchronously if an error occurs
+			// or server returns response with an error status.
+		});
+		*/
+		
+		.then(function(response){			 
+			if(response.data.status == "ok"){
+				console.log("Success:" + JSON.stringify(response))
+				console.log(response.data.status)
+				console.log(JSON.stringify(response.data.asmJson))
+				
+				//console.log("ASM JSON: " + response.data.asmJson)
+				$cookies.put("asmStr", JSON.stringify(response.data.asmJson));
+				
+				var str = $cookies.get("asmStr")
+				console.log("Decoded cookie: " + str);
+			}
+			else{
+				//console.log("Error in assembling: " + response);
+			} 
+			
+		});
+		
+	};
+	
+	$scope.SimulateFile = function() {
+        console.log("in Simulate");
+		
+		
+		//var jsonCode = JSON.parse(codeText);
+		
+		$http({
+			method: 'GET',
+			url: 'http://localhost:12345/Simulator',
+			headers: {'Content-Type': undefined},				
+		})	
+		.then(function successCallback(response) {
+			console.log("Success:" + JSON.stringify(response)) ;
+			// this callback will be called asynchronously
+			// when the response is available
+			}, function errorCallback(response) {
+						console.log("error");
+
+			// called asynchronously if an error occurs
+			// or server returns response with an error status.
+		});
+		
+		
+	};
 
     $scope.openLED = function() {
         //console.log(Jquery.ui);
