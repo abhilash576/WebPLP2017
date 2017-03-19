@@ -61,7 +61,7 @@ public class PLPWebController {
 		
 		session = request.getSession();
 		sessionKey = session.getId();
-		PLPUserDB.getInstance().registerNewUser(un, sessionKey);
+		PLPUserDB.getInstance().registerNewUser(un, session, sessionKey	);
 		if(session.isNew())
 			response += "\"status\":\"successs\",\"session_key\":\"" + sessionKey + "\"";
 		System.out.println(response);
@@ -106,12 +106,16 @@ public class PLPWebController {
     
     @RequestMapping(value = "/assembleText" , method = RequestMethod.POST)
     @CrossOrigin
-    public String assembleText(@RequestBody String textval, HttpServletRequest request, HttpSession session) throws AssemblerException, JsonProcessingException {
+    public String assembleText(@RequestBody AssemblyInfo assembly, HttpServletRequest request, HttpSession session) throws AssemblerException, JsonProcessingException {
     	
     	System.out.println("in assemble");
+    	String sessKey = assembly.getSessionKey();
+    	System.out.println("Sess: " + assembly.getSessionKey());
+    	session = PLPUserDB.getInstance().getUser(sessKey).getUserSession();
+    	
     	String response = "";
     	
-    	String code = textval;
+    	String code = assembly.getCode();
     	
     	WebASMFile asmFile = new WebASMFile(code, "main.asm");
     	System.out.println("code: " + code);
@@ -125,7 +129,7 @@ public class PLPWebController {
     	
     	System.out.println("IMAGE:    " + image);
     	
-    	session = this.session;
+    	
     	System.out.println("ID: " + session.getId());
     	
     	session.setAttribute("ASMImage", image);

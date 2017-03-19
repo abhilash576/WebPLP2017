@@ -3,6 +3,8 @@
  */
 package edu.asu.PLPWebserver;
 
+import javax.servlet.http.HttpSession;
+
 /**
  * @author ngoel2
  *
@@ -10,17 +12,17 @@ package edu.asu.PLPWebserver;
 public class UserSession {
 	
 	private String userName;
-	private String userSessionKey;
+	private HttpSession session;
 	private long userLastUsedTime;
 	/**
 	 * @param userName
 	 * @param sessionKey
 	 * @param userLastUsedTime
 	 */
-	public UserSession(String userName, String sessionKey, long userLastUsedTime) {
+	public UserSession(String userName, HttpSession session, long userLastUsedTime) {
 		super();
 		this.userName = userName;
-		this.userSessionKey = sessionKey;
+		this.session = session;
 		this.userLastUsedTime = userLastUsedTime;
 	}
 	/**
@@ -44,8 +46,8 @@ public class UserSession {
 	/**
 	 * @return the userSessionKey
 	 */
-	public String getUserSessionKey() {
-		return userSessionKey;
+	public HttpSession getUserSession() {
+		return session;
 	}
 	
 

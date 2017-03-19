@@ -6,6 +6,8 @@ package edu.asu.PLPWebserver;
 import java.util.HashMap;
 import java.util.Random;
 
+import javax.servlet.http.HttpSession;
+
 
 /**
  * @author ngoel2
@@ -23,7 +25,7 @@ public class PLPUserDB {
 	/*
 	 * 
 	 */
-	public void registerNewUser(String un, String sessionKey){
+	public void registerNewUser(String un, HttpSession session, String sessionKey){
 //		Random random = new Random();
 //		int sessionKey =  random.nextInt(Integer.MAX_VALUE);
 //		while (sessionKey >= 0 && userSessionInfo.containsKey(sessionKey)){
@@ -32,7 +34,7 @@ public class PLPUserDB {
 //		if (sessionKey < 0){
 //			return -1;
 //		} else {
-			UserSession user = new UserSession(un, sessionKey, System.currentTimeMillis());
+			UserSession user = new UserSession(un, session, System.currentTimeMillis());
 			userSessionInfo.put(sessionKey, user);
 			//return sessionKey;
 		//}
@@ -41,7 +43,7 @@ public class PLPUserDB {
 	/*
 	 * 
 	 */
-	public UserSession getUser(int sessionKey){
+	public UserSession getUser(String sessionKey){
 		return userSessionInfo.get(sessionKey);
 		
 	}
