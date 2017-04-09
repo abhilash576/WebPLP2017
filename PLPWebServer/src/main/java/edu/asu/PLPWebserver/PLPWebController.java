@@ -56,7 +56,7 @@ import javafx.stage.Stage;
 @RestController
 public class PLPWebController {
 	
-	String fileStoragePath = "C:/Users/sjjai/Desktop/PLP/";
+	String fileStoragePath = "files/";
 	HttpSession session;
 	private boolean isSimulationRunning;
 	ASMImage image = null;
@@ -145,11 +145,6 @@ public class PLPWebController {
 	    	asmFile.setContent(code);
 	    	List<ASMFile> listASM = new ArrayList<ASMFile>();
 	    	listASM.add(asmFile);
-	    	
-	    	WebASMFile asmFile2 = new WebASMFile(code, "main.asm");
-	    	//System.out.println("code: " + code);
-	    	asmFile2.setContent(code);
-	    	//listASM.add(asmFile);
 	    	
 	    	
 	    	Assembler assembler = new PLPAssembler();
