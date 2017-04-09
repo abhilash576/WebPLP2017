@@ -1,18 +1,23 @@
 package edu.asu.plp.tool.backend.isa;
 
+import com.google.common.eventbus.Subscribe;
+
+import edu.asu.plp.tool.backend.isa.events.SimulatorControlEvent;
+import edu.asu.plp.tool.backend.isa.exceptions.SimulatorException;
+
 public interface Simulator
 {
 	boolean isRunning();
 	
-	boolean run();
+	void run() throws SimulatorException;
 	
-	boolean step();
+	boolean step() throws SimulatorException;
 	
 	void reset();
 	
 	boolean isPaused();
 	
-	boolean pause();
+	void pause();
 	
 	boolean isSimModeEnabled();
 	
@@ -28,4 +33,9 @@ public interface Simulator
 	
 	void setIRQ(long value);
 	void maskIRQ(long value);
+	
+	void startListening();
+	void stopListening();
+	@Subscribe
+	void receiveCommand(SimulatorControlEvent e);
 }

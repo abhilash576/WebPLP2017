@@ -22,7 +22,6 @@ import edu.asu.plp.tool.backend.isa.ASMImage;
 import edu.asu.plp.tool.backend.isa.ASMInstruction;
 import edu.asu.plp.tool.backend.isa.Assembler;
 import edu.asu.plp.tool.backend.isa.exceptions.AssemblerException;
-import edu.asu.plp.tool.backend.isa.exceptions.AssemblyException;
 import edu.asu.plp.tool.backend.plpisa.PLPASMImage;
 import edu.asu.plp.tool.backend.plpisa.PLPAssemblyInstruction;
 import edu.asu.plp.tool.backend.plpisa.assembler.PLPDisassembly;
@@ -35,6 +34,7 @@ import edu.asu.plp.tool.backend.plpisa.assembler2.arguments.StringLiteral;
 import edu.asu.plp.tool.backend.plpisa.assembler2.arguments.Value;
 import edu.asu.plp.tool.backend.plpisa.assembler2.instructions.AssemblerDirectiveStep;
 import edu.asu.plp.tool.backend.util.ISAUtil;
+import edu.asu.plp.tool.prototype.ApplicationSettings;
 import javafx.util.Pair;
 
 public class PLPAssembler implements Assembler
@@ -58,6 +58,7 @@ public class PLPAssembler implements Assembler
 	
 	private long programLocation;
 	private int lineNumber;
+	private String currentLine;
 	private long currentAddress;
 	private ASMFile currentFile;
 	
@@ -67,7 +68,7 @@ public class PLPAssembler implements Assembler
 	private long entryPoint;
 	//private ArrayList<Integer> regionMap;
 	
-	private String projectPath = "C:/Users/sjjai/Desktop/PLP/";
+	private String projectPath = "/Users/abhilash/Plpprogms/";
 	private int nInstructionInserted;
 	
 	
@@ -199,7 +200,7 @@ public class PLPAssembler implements Assembler
 		//2nd Step Preprocess - Take care of syntax errors, symbol table, assembler directives, pseudoOperations, comments and empty lines
 		for (ASMFile asmFile : asmFiles)
 		{
-			//projectPath = asmFile.getProject().getPath();			//commented
+			//projectPath = asmFile.getProject().getPath();
 			currentFile = asmFile;
 			preprocessFile(asmFile.getContent(), asmFile);
 		}
@@ -220,6 +221,7 @@ public class PLPAssembler implements Assembler
 		
 		//return new PLPASMImage(assemblyToDisassemblyMap, nStartingAddress);
 		return new PLPASMImage(lstdisassem);
+		
 	}
 	
 	private void disassemblygenerator()
@@ -282,11 +284,12 @@ public class PLPAssembler implements Assembler
 		String[] lines = content.split("\\n\\r?");
 		lineNumber = 1;
 		//programLocation = 0;
-		try
-		{
+		//try
+		//{
 			for (String line : lines)
 			{
 				String source = line.trim();
+				currentLine = source;
 				if(source.indexOf('#') > 0)
 					source = source.substring(0, source.indexOf('#') - 1).trim();
 				
@@ -296,8 +299,25 @@ public class PLPAssembler implements Assembler
 				
 				if(preProcessInstruction.contains(ASM__ORG__))
 				{
-					programLocation = ISAUtil
-							.sanitize32bits(preProcessInstruction.split(" ")[1]);
+					try
+					{
+						programLocation = ISAUtil
+								.sanitize32bits(preProcessInstruction.split(" ")[1]);
+					}
+					catch(Exception e)
+					{
+						if( e instanceof NumberFormatException )
+						{
+							//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+							throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, ".org", e.getMessage());
+						}
+						else 
+						{
+							//TODO:May need a separate class of error to handle this scenario?
+							throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, ".org", e.getMessage());
+							//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+						}
+					}
 				}
 				else if(preProcessInstruction.contains(ASM__SKIP__))
 				{
@@ -366,16 +386,230 @@ public class PLPAssembler implements Assembler
 				
 				lineNumber++;
 			}
-		}
-		catch (ParseException exception)
+		//}
+		//catch (ParseException exception)
+		//{
+		//	throw new AssemblerException(exception);
+		//}
+		//catch (Exception exception)
+		//{
+		//	throw new AssemblerException(exception);
+		//}
+	}
+	
+	private String getErrorMessageFromSettings(ArrayList keys, String location, String message, String token)
+	{
+		String errorMessage = "";
+		String key = "";
+		
+		keys.add(AssemblerException.DescriptionKey);
+		key = ApplicationSettings.getKeyName(keys);
+		String description = ApplicationSettings.getSetting(key).get();
+		if(message.length() > 0)
+			description += (". "+message);
+		if(token.length() > 0)
+			description += (". Error was found around "+ token+ " in the instruction");
+		keys.remove(AssemblerException.DescriptionKey);
+		keys.add(AssemblerException.LinksKey);
+		key = ApplicationSettings.getKeyName(keys);
+		String links = ApplicationSettings.getSetting(key).get();
+		keys.remove(AssemblerException.LinksKey);
+		keys.add(AssemblerException.ExamplesKey);
+		key = ApplicationSettings.getKeyName(keys);
+		String examples = ApplicationSettings.getSetting(key).get();
+		keys.remove(AssemblerException.ExamplesKey);
+		
+		errorMessage = "\nERROR LOCATION:\t"+location + "\nDESCRIPTION:\t" + description + "\nHELPFUL LINKS:\t"+links+"\nEXAMPLES:\n"+ examples;
+		
+		return errorMessage;
+	}
+	
+	private void throw_assembler_exception(int typeOfException, int subtypeOfException, String previousToken, String customErrorMessage) throws AssemblerException
+	{
+		String location = "ERROR in file "+ currentFile.getName() + " at line number " + String.valueOf(lineNumber) + "\nINSTRUCTION: "+currentLine;
+		ArrayList keys = new ArrayList();
+		keys.add(AssemblerException.ErrorMessagingSystemKey);
+		
+		switch(typeOfException)
 		{
-			throw new AssemblerException(exception);
-		}
-		catch (Exception exception)
-		{
-			throw new AssemblerException(exception);
+			case AssemblerException.ASSEMBLER_DIRECTIVE_ERROR:
+			{
+				keys.add(AssemblerException.ERROR_ASSEMBLER_DIRECTIVE);
+				switch(subtypeOfException)
+				{
+					case AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_INVALID_TOKEN_ASSEMBLER_DIRECTIVE);
+						break;
+					}
+					case AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_MISSING_TOKEN_ASSEMBLER_DIRECTIVE);
+						break;
+					}
+				}
+				throw new AssemblerException(getErrorMessageFromSettings(keys, location, customErrorMessage, previousToken));
+				
+			}
+			case AssemblerException.DUPLICATE_LABEL_ERROR:
+			{
+				keys.add(AssemblerException.ERROR_DUPLICATE_LABEL);
+				switch(subtypeOfException)
+				{
+					case AssemblerException.DUPLICATE_LABEL_SUB_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_SUB_DUPLICATE_LABEL);
+						break;
+					}
+				}
+				throw new AssemblerException(getErrorMessageFromSettings(keys, location, customErrorMessage, previousToken));
+			}
+			case AssemblerException.INVALID_LABEL_TARGET_ERROR:
+			{
+				keys.add(AssemblerException.ERROR_INVALID_LABEL_TARGET);
+				switch(subtypeOfException)
+				{
+					case AssemblerException.INVALID_LABEL_TARGET_BRANCH_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_BRANCH_INVALID_LABEL_TARGET);
+						break;
+					}
+					case AssemblerException.INVALID_LABEL_TARGET_JUMP_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_JUMP_INVALID_LABEL_TARGET);
+						break;
+					}
+				}
+				throw new AssemblerException(getErrorMessageFromSettings(keys, location, customErrorMessage, previousToken));
+			}
+			case AssemblerException.INVALID_NUMBER_OF_TOKENS_ERROR:
+			{
+				keys.add(AssemblerException.ERROR_INVALID_NUMBER_OF_TOKENS);
+				switch(subtypeOfException)
+				{
+					case AssemblerException.INVALID_NUMBER_OF_TOKENS_MISSING_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_MISSING_TOKENS_INVALID_NUMBER_OF_TOKENS);
+						break;
+					}
+					case AssemblerException.INVALID_NUMBER_OF_TOKENS_EXTRA_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_EXTRA_TOKENS_INVALID_NUMBER_OF_TOKENS);
+						break;
+					}
+					case AssemblerException.INVALID_NUMBER_OF_TOKENS_NOT_MATCHING_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_NOT_MATCHING_INVALID_NUMBER_OF_TOKENS);
+						break;
+					}
+				}
+				throw new AssemblerException(getErrorMessageFromSettings(keys, location, customErrorMessage, previousToken));
+			}
+			case AssemblerException.INVALID_TOKEN_ERROR:
+			{
+				keys.add(AssemblerException.ERROR_INVALID_TOKEN);
+				switch(subtypeOfException)
+				{
+					case AssemblerException.INVALID_TOKEN_INVALID_INSTRUCTION_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_INVLAID_INSTRUCTION_INVALID_TOKEN);
+						break;
+					}
+					case AssemblerException.INVALID_TOKEN_INVALID_LABEL_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_INVALID_LABEL_INVALID_TOKEN);
+						break;
+					}
+				}
+				throw new AssemblerException(getErrorMessageFromSettings(keys, location, customErrorMessage, previousToken));
+			}
+			case AssemblerException.INVALID_REGISTER_ERROR:
+			{
+				keys.add(AssemblerException.ERROR_INVALID_REGISTER);
+				switch(subtypeOfException)
+				{
+					case AssemblerException.INVALID_REGISTEr_NOT_REGISTER_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_SUB_INVALID_REGISTER);
+						break;
+					}
+				}
+				throw new AssemblerException(getErrorMessageFromSettings(keys, location, customErrorMessage, previousToken));
+			}
+			case AssemblerException.INVALID_NUMBER_ERROR:
+			{
+				keys.add(AssemblerException.ERROR_INVALID_NUMBER);
+				switch(subtypeOfException)
+				{
+					case AssemblerException.INVALID_NUMBER_SUB_ERROR:
+					{
+						keys.add(AssemblerException.ERROR_NOT_A_NUMBER_INVALID_NUMBER);
+						break;
+					}
+				}
+				throw new AssemblerException(getErrorMessageFromSettings(keys, location, customErrorMessage, previousToken));
+			}
+			case AssemblerException.LEXXER_ERROR:
+			{
+				throw new AssemblerException(location + "Lexxer Error "+customErrorMessage);
+				
+			}
+			default:
+			{
+				break;
+			}
 		}
 	}
+	
+	/*private void throw_assembler_exception(String errorMessage, int typeOfException) throws AssemblerException
+	{
+		switch(typeOfException)
+		{
+			case AssemblerException.LEXXER_ERROR:
+			{
+				String errMsg = "ERROR in file "+ currentFile.getName() + " at line number " + String.valueOf(lineNumber) + "\nINSTRUCTION: "+currentLine+" \nERROR INFORMATION: " + errorMessage;
+				//System.out.println(errMsg);
+				throw new AssemblerException(errMsg);
+				
+			}
+			case AssemblerException.UNKOWN_TOKEN_ERROR:
+			{
+				String errMsg = "ERROR in file "+ currentFile.getName() + " at line number " + String.valueOf(lineNumber) + "\nINSTRUCTION: "+currentLine+" \nERROR INFORMATION: Got token - " + errorMessage+ " , this is unkown token";
+				throw new AssemblerException(errMsg);
+			}
+			case AssemblerException.EXTRA_TOKEN_ERROR:
+			{
+				String errMsg = "ERROR in file "+ currentFile.getName() + " at line number " + String.valueOf(lineNumber) + "\nINSTRUCTION: "+currentLine+" \nERROR INFORMATION: Got extra token - " + errorMessage+ " , this needs to be deleted";
+				throw new AssemblerException(errMsg);
+			}
+			case AssemblerException.MISSING_TOKEN_ERROR:
+			{
+				String errMsg = "ERROR in file " + currentFile.getName() + " at line number " + String.valueOf(lineNumber) + "\nINSTRUCTION: "+currentLine+" \nERROR INFORMATION: missing token in the instruction";
+				throw new AssemblerException(errMsg);
+			}
+			case AssemblerException.NEXT_TOKEN_MISSING_ERROR:
+			{
+				String errMsg = "ERROR in file " + currentFile.getName() + " at line number " + String.valueOf(lineNumber) + "\nINSTRUCTION: "+currentLine+" \nERROR INFORMATION: missing token in the instruction,  "+ errorMessage;
+				throw new AssemblerException(errMsg);
+			}
+			case AssemblerException.TOKEN_NOT_MATCHING_ERROR:
+			{
+				String errMsg = "ERROR in file " + currentFile.getName() + " at line number " + String.valueOf(lineNumber) + "\nINSTRUCTION: "+currentLine+" \nERROR INFORMATION: token not matching,  "+ errorMessage;
+				throw new AssemblerException(errMsg);
+			}
+			case AssemblerException.SANITIZE_ERROR:
+			{
+				String errMsg = "ERROR in file " + currentFile.getName() + " at line number " + String.valueOf(lineNumber) + "\nINSTRUCTION: "+currentLine+" \nERROR INFORMATION: number parsing error,  "+ errorMessage;
+				throw new AssemblerException(errMsg);
+			}
+			case AssemblerException.DUPLICATE_LABEL_ERROR:
+			{
+				String errMsg = "ERROR in file " + currentFile.getName() + " at line number " + String.valueOf(lineNumber) + "\nINSTRUCTION: "+currentLine+" \nERROR INFORMATION: duplicate labels found,  "+ errorMessage;
+				throw new AssemblerException(errMsg);
+			}
+				
+		}
+	}*/
 	
 	private void preprocessFile(String content, ASMFile asmFile) throws AssemblerException
 	{
@@ -386,102 +620,111 @@ public class PLPAssembler implements Assembler
 		
 		HashMap<Integer, String> lineNumberToPreprocessed = new HashMap<>();
 		
-		try
+		currentFile = asmFile;
+		for (String line: lines)
 		{
-			for (String line: lines)
+			currentLine = line;
+			List<Token> linetokens = null;
+			try
 			{
-				List<Token> linetokens = lexer.lex(line);
-				
-				tokenIterator = linetokens.listIterator();
-				currentToken = null;
-				
-				if(!nextToken(1))
+				linetokens = lexer.lex(line);
+			}
+			catch(Exception ex)
+			{
+				throw_assembler_exception(AssemblerException.LEXXER_ERROR, 0, "", ex.getMessage());
+				//throw_assembler_exception(ex.getMessage(), AssemblerException.LEXXER_ERROR);
+			}
+			
+			tokenIterator = linetokens.listIterator();
+			currentToken = null;
+			
+			if(!nextToken(1))
+			{
+				continue;
+			}
+			
+			String preprocessedInstruction = "";
+			
+			if(currentToken == null)
+			{
+				//TODO: When this will occur??
+				//throw_assembler_exception("", AssemblerException.MISSING_TOKEN_ERROR);
+			}
+			
+			if(isAssemblerDirective(currentToken))
+			{
+				preprocessedInstruction = directiveMap.get(currentToken.getValue()).perform();
+			}
+			else if(pseudoOperationMap.containsKey(currentToken.getValue()))
+			{
+				preprocessedInstruction = pseudoOperationMap.get(currentToken.getValue()).perform();	
+			}
+			else if(isInstruction(currentToken))
+			{
+				preprocessedInstruction = preprocessNormalInstruction();
+			}
+			else if(currentToken.getTypeName() == PLPTokenType.COMMENT.name())
+			{
+				preprocessedInstruction = ASM__SKIP__;						
+			}
+			else if(isLabelDeclaration(currentToken))
+			{
+				preprocessedInstruction = labeldeclarationProcessing();
+			}
+			else if(currentToken.getTypeName() == PLPTokenType.NEW_LINE.name())
+			{
+				preprocessedInstruction = ASM__SKIP__;
+			}
+			else
+			{
+				String currentValue = currentToken.getValue();
+				if(nextToken(1))
 				{
-					continue;
-				}
-				
-				String preprocessedInstruction = "";
-				
-				if(currentToken == null)
-				{
-					//Error
-					throw new AssemblerException( "Line number: " + Integer.toString(lineNumber) + " Token is null");
-				}
-				
-				if(isAssemblerDirective(currentToken))
-				{
-					preprocessedInstruction = directiveMap.get(currentToken.getValue()).perform();
-				}
-				else if(pseudoOperationMap.containsKey(currentToken.getValue()))
-				{
-					preprocessedInstruction = pseudoOperationMap.get(currentToken.getValue()).perform();	
-				}
-				else if(isInstruction(currentToken))
-				{
-					preprocessedInstruction = preprocessNormalInstruction();
-				}
-				else if(currentToken.getTypeName() == PLPTokenType.COMMENT.name())
-				{
-					preprocessedInstruction = ASM__SKIP__;						
-				}
-				else if(isLabel(currentToken))
-				{
-					preprocessedInstruction = labeldeclarationProcessing();
-				}
-				else if(currentToken.getTypeName() == PLPTokenType.NEW_LINE.name())
-				{
-					preprocessedInstruction = ASM__SKIP__;
+					throw_assembler_exception(AssemblerException.INVALID_TOKEN_ERROR, AssemblerException.INVALID_TOKEN_INVALID_INSTRUCTION_ERROR, currentValue, "");
 				}
 				else
 				{
-					throw new AssemblerException(
-								"Line number: " + Integer.toString(lineNumber) + ":Unknown token in preprocessing, found: "
-										+ currentToken.getValue());
+					throw_assembler_exception(AssemblerException.INVALID_TOKEN_ERROR, AssemblerException.INVALID_TOKEN_INVALID_LABEL_ERROR, currentValue, "");
 				}
 				
-				if(nextToken(1))
+				//throw_assembler_exception(currentToken.getValue()+":"+currentToken.getTypeName(), AssemblerException.UNKOWN_TOKEN_ERROR);
+			}
+			
+			if(nextToken(1))
+			{
+				if(currentToken.getTypeName() == PLPTokenType.COMMENT.name())
 				{
-					if(currentToken.getTypeName() == PLPTokenType.COMMENT.name())
+					if(nextToken(1))
 					{
-						if(nextToken(1))
-							throw new AssemblerException( "Line number: " + Integer.toString(lineNumber) + ":Extra token is present a line, found: " + currentToken.getValue());
-						
+						//TODO: This is case of extra token.
+						//throw_assembler_exception(currentToken.getValue()+":"+currentToken.getTypeName(),  AssemblerException.EXTRA_TOKEN_ERROR);
+						throw_assembler_exception(AssemblerException.INVALID_NUMBER_OF_TOKENS_ERROR, AssemblerException.INVALID_NUMBER_OF_TOKENS_EXTRA_ERROR, currentToken.getValue(), "");
 					}
-					else
-					{
-						throw new AssemblerException( "Line number: " + Integer.toString(lineNumber) + ":Extra token is present a line, found: " + currentToken.getValue());
-					}	
 					
 				}
-				
-					
-				
-				lineNumberToPreprocessed.put(lineNumber, preprocessedInstruction);
-				fileTokens.addAll(linetokens);
-				lineNumber++;
+				else
+				{
+					//TODO: This is case of extra token.
+					//throw_assembler_exception(currentToken.getValue()+":"+currentToken.getTypeName(),  AssemblerException.EXTRA_TOKEN_ERROR);
+					throw_assembler_exception(AssemblerException.INVALID_NUMBER_OF_TOKENS_ERROR, AssemblerException.INVALID_NUMBER_OF_TOKENS_EXTRA_ERROR, currentToken.getValue(), "");
+				}	
 				
 			}
 			
-			lineNumAndAsmFileMap.put(asmFile.getName(), lineNumberToPreprocessed);
-		}
-		catch(Exception exp)
-		{
-			System.out.println("EXCEPTION: "+ exp);
+				
+			
+			lineNumberToPreprocessed.put(lineNumber, preprocessedInstruction);
+			fileTokens.addAll(linetokens);
+			lineNumber++;
+			
 		}
 		
-		System.out.println("Check:: ");
+		lineNumAndAsmFileMap.put(asmFile.getName(), lineNumberToPreprocessed);
 		
-		for(String s : lineNumAndAsmFileMap.keySet()){
-			HashMap<Integer, String> temp = lineNumAndAsmFileMap.get(s);
-			for(int i : temp.keySet()){
-				System.out.println(s + " : " + i + " :: " + temp.get(i));
-			}
-		}
 		
 	}
 	
 	private PLPDisassembly process(String instructionName, Argument[] arguments)
-			throws ParseException
 	{
 		PLPInstruction instruction = plpInstructions.get(instructionName);
 		int codedInstruction = instruction.assemble(arguments);
@@ -492,7 +735,7 @@ public class PLPAssembler implements Assembler
 		return disassembly;
 	}
 	
-	private Argument[] parseArguments(String[] argumentStrings) throws ParseException, AssemblerException
+	private Argument[] parseArguments(String[] argumentStrings) throws AssemblerException
 	{
 		int size = argumentStrings.length;
 		Argument[] arguments = new Argument[size];
@@ -507,7 +750,7 @@ public class PLPAssembler implements Assembler
 		return arguments;
 	}
 	
-	private Argument parseArgument(String argumentString) throws ParseException, AssemblerException
+	private Argument parseArgument(String argumentString) throws AssemblerException
 	{
 		argumentString = argumentString.trim();
 		if(argumentString.startsWith(ASM__HIGH__))
@@ -520,8 +763,24 @@ public class PLPAssembler implements Assembler
 			}
 			else
 			{
+				try
+				{
 				symbolResolverValue = (int) (ISAUtil
 						.sanitize32bits(symbolResolver) >> 16);
+				}
+				catch(Exception e)
+				{
+					if( e instanceof NumberFormatException )
+					{
+						throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, symbolResolver, e.getMessage());
+						//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+					}
+					else 
+					{
+						//TODO:: Is this needed anytime?
+						//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+					}
+				}
 			}
 			return new Value(Integer.toString(symbolResolverValue));
 		}
@@ -532,8 +791,25 @@ public class PLPAssembler implements Assembler
 			if (symbolTable.containsKey(symbolResolver))
 				symbolResolverValue = (int) (symbolTable.get(symbolResolver) & 0xFFFF);
 			else
-				symbolResolverValue = (int) (ISAUtil
+			{
+				try
+				{
+					symbolResolverValue = (int) (ISAUtil
 						.sanitize32bits(symbolResolver) & 0xFFFF);
+				}
+				catch(Exception e)
+				{
+					if( e instanceof NumberFormatException )
+					{
+						throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, symbolResolver, e.getMessage());
+					}
+					else 
+					{
+						//TODO:: if needed then separate category needs to be added.
+						//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+					}
+				}
+			}
 			
 			return new Value(Integer.toString(symbolResolverValue));
 		}
@@ -542,9 +818,8 @@ public class PLPAssembler implements Assembler
 			boolean valid = argumentString.endsWith("" + argumentString.charAt(0));
 			if (!valid)
 			{
-				throw new ParseException(
-						"Line Number:"+Integer.toString(lineNumber)+" String literals must be enclosed in single or double quotes.",
-						lineNumber);
+				//TODO:: For invalid string new category needs to be created.
+				//throw_assembler_exception(" String literals must be enclosed in single or double quotes.", AssemblerException.SANITIZE_ERROR);
 			}
 			
 			return new StringLiteral(argumentString);
@@ -562,9 +837,8 @@ public class PLPAssembler implements Assembler
 			boolean valid = isNumericValue(argumentString);
 			if (!valid)
 			{
-				throw new ParseException(
-						"Line Number:"+Integer.toString(lineNumber)+" Expected an integer value to follow '0x' but found '"
-								+ argumentString + "'", lineNumber);
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, argumentString," Expected an integer value to follow '0x'" );
+				//throw_assembler_exception(" Expected an integer value to follow '0x' but found '"+ argumentString + "'", AssemblerException.SANITIZE_ERROR);
 			}
 			
 			return new Value(argumentString);
@@ -574,9 +848,9 @@ public class PLPAssembler implements Assembler
 			boolean valid = isNumericValue(argumentString);
 			if (!valid)
 			{
-				throw new ParseException(
-						"Line Number:"+Integer.toString(lineNumber)+" Expected an integer value to follow '0x' but found '"
-								+ argumentString + "'", lineNumber);
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, argumentString," Expected an integer value to follow '0h'" );
+				//throw_assembler_exception(" Expected an integer value to follow '0h' but found '" + argumentString + "'", AssemblerException.SANITIZE_ERROR);
+				
 			}
 			
 			return new Value(argumentString);
@@ -586,9 +860,8 @@ public class PLPAssembler implements Assembler
 			boolean valid = isNumericValue(argumentString);
 			if (!valid)
 			{
-				throw new ParseException(
-						"Line Number:"+Integer.toString(lineNumber)+" Expected an integer value to follow '0b' but found '"
-								+ argumentString + "'", lineNumber);
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, argumentString," Expected an integer value to follow '0b'" );
+				//throw_assembler_exception(" Expected an integer value to follow '0b' but found '" + argumentString + "'", AssemblerException.SANITIZE_ERROR);
 			}
 			
 			
@@ -600,13 +873,27 @@ public class PLPAssembler implements Assembler
 		}
 		else if (argumentString.matches("[a-zA-Z0-9_]+"))
 		{
+			if(!symbolTable.containsKey(argumentString))
+			{
+				if(currentLine.contains("beq ") || currentLine.contains("bne "))
+				{
+					//branch Target
+					throw_assembler_exception(AssemblerException.INVALID_LABEL_TARGET_ERROR, AssemblerException.INVALID_LABEL_TARGET_BRANCH_ERROR, argumentString, "You are using a label which is not yet declared.");
+				}
+				else
+				{
+					throw_assembler_exception(AssemblerException.INVALID_LABEL_TARGET_ERROR, AssemblerException.INVALID_LABEL_TARGET_JUMP_ERROR, argumentString, "You are using a label which is not yet declared.");
+				}
+			}
+			
 			LabelLiteral lbType = new LabelLiteral(argumentString, symbolTable.get(argumentString), programLocation);
 			return lbType;
 		}
 		else
 		{
-			throw new ParseException("Line Number:"+Integer.toString(lineNumber)+" Expected argument but found '" + argumentString
-					+ "'", lineNumber);
+			//TODO: This in future needs to go through throw_assembler_exception function
+			throw new AssemblerException("Expected argument but found '" + argumentString + "'");
+			
 		}
 	}
 	
@@ -641,9 +928,11 @@ public class PLPAssembler implements Assembler
 	 */
 	private String branchOperation() throws AssemblerException
 	{
-		expectedNextToken("pseudo move operation");
 		
-		ensureTokenEquality("Line Number: " + Integer.toString(lineNumber) + "(b) Expected a label to branch to, found: ",
+		
+		expectedNextToken("target label is missing");
+		
+		ensureTokenEquality("Instruction needs a target label to branch but got something else",
 				PLPTokenType.LABEL_PLAIN);
 		
 		addRegionAndIncrementAddress();
@@ -662,17 +951,19 @@ public class PLPAssembler implements Assembler
 	 */
 	private String moveOperation() throws AssemblerException
 	{
-		expectedNextToken("pseudo move operation");
-		String destinationRegister = currentToken.getValue();
-		ensureTokenEquality("(move) Expected a register, found: ", PLPTokenType.ADDRESS);
 		
-		expectedNextToken("move pseudo instruction");
-		ensureTokenEquality("(move) Expected a comma after " + destinationRegister
+		expectedNextToken("It needs a destination register");
+		String destinationRegister = currentToken.getValue();
+		ensureTokenEquality("Expected a destination register", PLPTokenType.ADDRESS);
+		
+		
+		expectedNextToken("It needs a comma and a register");
+		ensureTokenEquality("Expected a comma" + destinationRegister
 				+ " found: ", PLPTokenType.COMMA);
 		
-		expectedNextToken("pseudo move operation");
+		expectedNextToken("It needs a source register");
 		String startingRegister = currentToken.getValue();
-		ensureTokenEquality("(move) Expected a register, found: ", PLPTokenType.ADDRESS);
+		ensureTokenEquality("Expected a source register", PLPTokenType.ADDRESS);
 		
 		// TODO (Look into) Google Code PLP says it's equivalent instruction is Add, src
 		// code uses or
@@ -697,9 +988,9 @@ public class PLPAssembler implements Assembler
 	private String pushOperation() throws AssemblerException
 	{
 		String preprocessedInstructions = "";
-		expectedNextToken("push pseudo operation");
+		expectedNextToken("It needs a register whose value needs to be pushed");
 		
-		ensureTokenEquality("(push) Expected a register, found: ", PLPTokenType.ADDRESS);
+		ensureTokenEquality("Expected a register", PLPTokenType.ADDRESS);
 		
 		preprocessedInstructions = "addiu $sp, $sp, -4" + "\n" + "sw "  + currentToken.getValue() + ", 4($sp)";
 		addRegionAndIncrementAddress(2, 8);
@@ -722,9 +1013,9 @@ public class PLPAssembler implements Assembler
 	private String popOperation() throws AssemblerException
 	{
 		String preprocessedInstructions = "";
-		expectedNextToken("pop pseudo operation");
+		expectedNextToken("It needs a register to which value needs to be popped at");
 		
-		ensureTokenEquality("(push) Expected a register, found: ", PLPTokenType.ADDRESS);
+		ensureTokenEquality("Expected a register", PLPTokenType.ADDRESS);
 		
 		preprocessedInstructions = "lw " + currentToken.getValue() + ", 4($sp)" + "\n" + "addiu $sp, $sp, 4";
 		addRegionAndIncrementAddress(2, 8);
@@ -756,17 +1047,17 @@ public class PLPAssembler implements Assembler
 	private String liOperation() throws AssemblerException
 	{
 		String preprocessedInstructions = "";
-		expectedNextToken("load immediate pseudo operation");
+		expectedNextToken("It needs register and value which needs to be loaded");
 		String targetRegister = currentToken.getValue();
-		ensureTokenEquality("(li) Expected a register, found: ", PLPTokenType.ADDRESS);
+		ensureTokenEquality("Expected a destination register", PLPTokenType.ADDRESS);
 		
-		expectedNextToken("load immediate pseudo instruction");
-		ensureTokenEquality("(li) Expected a comma after " + targetRegister + " found: ",
+		expectedNextToken("It needs a comma followed by value which needs to be loaded to register "+targetRegister);
+		ensureTokenEquality("Expected a comma after " + targetRegister,
 				PLPTokenType.COMMA);
 		
-		expectedNextToken("load immediate pseudo operation");
+		expectedNextToken("It needs an immediate value or label whose address value will be loaded to register"+targetRegister);
 		String immediateOrLabel = currentToken.getValue();
-		ensureTokenEquality("(li) Expected a immediate value or label, found: ", 
+		ensureTokenEquality("Expected an immediate value or label", 
 				PLPTokenType.NUMERIC, PLPTokenType.LABEL_PLAIN);
 		
 		
@@ -786,18 +1077,18 @@ public class PLPAssembler implements Assembler
 	private String lwmOperation() throws AssemblerException
 	{
 		String preprocessedInstructions = "";
-		expectedNextToken("lvm psuedo operation");
+		expectedNextToken("This needs a register and memory loaction");
 		String targetRegister = currentToken.getValue();
-		ensureTokenEquality("(lvm) Expected a register, found: ", PLPTokenType.ADDRESS);
+		ensureTokenEquality("Expected a register to load values to", PLPTokenType.ADDRESS);
 		
-		expectedNextToken("two register immediate normal instruction");
+		expectedNextToken("It needs a comma followed by the memory loaction");
 		ensureTokenEquality(
-				"(lvm) Expected a comma after " + targetRegister + " found: ",
+				"Expected a comma after " + targetRegister,
 				PLPTokenType.COMMA);
 		
-		expectedNextToken("lvm psuedo operation");
+		expectedNextToken("It needs a memory location from which register" + targetRegister+ " value needs to be loaded. It can be memory address or label");
 		String immediateOrLabel = currentToken.getValue();
-		ensureTokenEquality("Expected a immediate value or label, found: ", 
+		ensureTokenEquality("Expected an immediate value or label", 
 				PLPTokenType.NUMERIC, PLPTokenType.LABEL_PLAIN);
 		
 		preprocessedInstructions = String.format("lui $at, %s %s", ASM__HIGH__, immediateOrLabel) + "\n" +
@@ -818,18 +1109,18 @@ public class PLPAssembler implements Assembler
 	private String swmOperation() throws AssemblerException
 	{
 		String preprocessedInstructions = "";
-		expectedNextToken("svm psuedo operation");
+		expectedNextToken("It needs a register and a memory location");
 		String targetRegister = currentToken.getValue();
-		ensureTokenEquality("(svm) Expected a register, found: ", PLPTokenType.ADDRESS);
+		ensureTokenEquality("Expected a register whose value needs to be saved", PLPTokenType.ADDRESS);
 		
-		expectedNextToken("svm pseudo instruction");
+		expectedNextToken("It needs a comma and a memory location");
 		ensureTokenEquality(
-				"(svm) Expected a comma after " + targetRegister + " found: ",
+				"Expected a comma after " + targetRegister,
 				PLPTokenType.COMMA);
 		
-		expectedNextToken("svm psuedo operation");
+		expectedNextToken("It needs a memory location to which register" + targetRegister +" value needs to be loaded. It can be memory address or label");
 		String immediateOrLabel = currentToken.getValue();
-		ensureTokenEquality("Expected a immediate value or label, found:",
+		ensureTokenEquality("Expected an immediate value or label",
 				PLPTokenType.NUMERIC, PLPTokenType.LABEL_PLAIN);
 		
 		preprocessedInstructions = String.format("lui $at, %s %s", ASM__HIGH__, immediateOrLabel) + "\n" +
@@ -852,9 +1143,9 @@ public class PLPAssembler implements Assembler
 	private String callOperation() throws AssemblerException
 	{
 		String preprocessedInstructions = "";
-		expectedNextToken("call psuedo operation");
+		expectedNextToken("It needs a label or target location which needs to be called");
 		String label = currentToken.getValue();
-		ensureTokenEquality("(call) Expected a label, found: ", PLPTokenType.LABEL_PLAIN);
+		ensureTokenEquality("Expected a label", PLPTokenType.LABEL_PLAIN);
 		
 		String[] registers = { "$a0", "$a1", "$a2", "$a3", "$t0", "$t1", "$t2", "$t3",
 				"$t4", "$t5", "$t6", "$t7", "$t8", "$t9", "$s0", "$s1", "$s2", "$s3",
@@ -960,17 +1251,30 @@ public class PLPAssembler implements Assembler
 	 */
 	private String orgDirective() throws AssemblerException
 	{
-		expectedNextToken(".org directive");
+		//expectedNextToken("It needs address value");
+		String previousToken = currentToken.getValue();
 		
-		ensureTokenEquality("(.org) Expected an address, found: ", PLPTokenType.NUMERIC);
+		if (!nextToken(1))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR, ".org", "Org directive needs an address value");
+		
+		if(!currentToken.getTypeName().equals(PLPTokenType.NUMERIC.name()))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, currentToken.getValue(), "Expecting a numeric value indicating an address");
 		
 		try
 		{
 			currentAddress = ISAUtil.sanitize32bits(currentToken.getValue());
 		}
-		catch (AssemblerException e)
+		catch (Exception e)
 		{
-			e.printStackTrace();
+			if( e instanceof NumberFormatException )
+			{
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, currentToken.getValue(), "Number should be within 32 bits");
+			}
+			else 
+			{
+				//TODO: When does this occur and what should be error for it?
+				//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+			}
 		}
 		
 		return ASM__ORG__ + " " + currentToken.getValue();
@@ -980,12 +1284,12 @@ public class PLPAssembler implements Assembler
 	
 	private String wordDirective() throws AssemblerException
 	{
-		expectedNextToken(".word directive");
+		if (!nextToken(1))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR, ".word", "word directive needs a numeric value");
 		
-		ensureTokenEquality(
-				"(.word) Expected number to initialize current memory address to, found: ",
-				PLPTokenType.NUMERIC);
-		
+		if(!currentToken.getTypeName().equals(PLPTokenType.NUMERIC.name()))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, currentToken.getValue(), "Expected number to initialize current memory address to");
+				
 		addRegionAndIncrementAddress(1, 4);
 		
 		return ASM__WORD__ + " " + currentToken.getValue();
@@ -994,9 +1298,11 @@ public class PLPAssembler implements Assembler
 	
 	private String spaceDirective() throws AssemblerException
 	{
-		expectedNextToken(".space directive");
+		if (!nextToken(1))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR, ".space", "space directive needs a numeric value");
 		
-		ensureTokenEquality("(.space) Expected a number, found: ", PLPTokenType.NUMERIC);
+		if(!currentToken.getTypeName().equals(PLPTokenType.NUMERIC.name()))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, currentToken.getValue(), "Expected a number");
 		
 		try
 		{
@@ -1005,9 +1311,17 @@ public class PLPAssembler implements Assembler
 			//byteSpace += 4 * size;
 			
 		}
-		catch (AssemblerException e)
+		catch (Exception e)
 		{
-			e.printStackTrace();
+			if( e instanceof NumberFormatException )
+			{
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, currentToken.getValue(), "Number should be within 32 bits");
+			}
+			else 
+			{
+				//TODO: When does this occur and what should be error for it?
+				//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+			}
 		}
 		return ASM__ORG__ + " " + Long.toString(currentAddress);
 	}
@@ -1020,10 +1334,18 @@ public class PLPAssembler implements Assembler
 		StringBuilder preInstruction = new StringBuilder();
 		preInstruction.append("");
 		
-		expectedNextToken(currentToken.getValue() + " directive");
+		//TODO: give a meaningful argument
+		//expectedNextToken(currentToken.getValue() + " directive");
+		String value = currentToken.getValue();
+		if (!nextToken(1))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR, value, "Expecting a string after the directive");
 		
-		ensureTokenEquality("(" + directiveToken.getValue()
-				+ ") Expected a string to store, found: ", PLPTokenType.STRING);
+		
+		//TODO: give a meaningful argument
+		//ensureTokenEquality("(" + directiveToken.getValue()
+		//		+ ") Expected a string to store, found: ", PLPTokenType.STRING);
+		if(!currentToken.getTypeName().equals(PLPTokenType.STRING.name()))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, currentToken.getValue(), "Expected a string");
 		
 		// Strip quotes
 		String currentValue = null;
@@ -1119,7 +1441,13 @@ public class PLPAssembler implements Assembler
 	 */
 	private String includeDirective() throws AssemblerException
 	{
-		expectedNextToken("include directive");
+		//TODO: give a meaningful argument
+		//expectedNextToken("include directive");
+		if (!nextToken(1))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR, ".include", "include directive needs a file path");
+		
+		if(!currentToken.getTypeName().equals(PLPTokenType.STRING.name()))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, currentToken.getValue(), "Expected a string indicating a file path");
 		
 		throw new UnsupportedOperationException("Include Directive is not implemented");
 		
@@ -1128,11 +1456,16 @@ public class PLPAssembler implements Assembler
 	
 	private String textDirective() throws AssemblerException
 	{
-		expectedNextToken(".text directive");
+		//TODO: give a meaningful argument
+		if (!nextToken(1))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR, ".text", "text directive needs the address");
 		
 		if (currentRegion != 1)
 		{
-			ensureTokenEquality("(.text) Expected a number, found: ", PLPTokenType.NUMERIC);
+			//TODO: give a meaningful argument
+			//ensureTokenEquality("(.text) Expected a number, found: ", PLPTokenType.NUMERIC);
+			if(!currentToken.getTypeName().equals(PLPTokenType.NUMERIC.name()))
+				throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, currentToken.getValue(), "Expected a number");
 			
 			//directiveOffset++;
 			
@@ -1146,13 +1479,21 @@ public class PLPAssembler implements Assembler
 		try
 		{
 			currentAddress = ISAUtil.sanitize32bits(currentToken.getValue());
-			
+			//TODO: Once .text directive implementation is done, then modify below exception. It has to go through throw_assembler_exception function.
 			if (currentAddress < 0)
-				throw new AssemblerException("Line Number: "+ Integer.toString(lineNumber)+ " Starting address for .text is not defined.");
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, currentToken.getValue(), "Address value should be greater than 0");
 		}
-		catch (AssemblerException e)
+		catch (Exception e)
 		{
-			e.printStackTrace();
+			if( e instanceof NumberFormatException )
+			{
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, currentToken.getValue(), "Number should be within 32 bits");
+			}
+			else 
+			{
+				//TODO: when this will occur and create new category of error
+				//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+			}
 		}
 		
 		entryPoint = currentAddress;
@@ -1163,9 +1504,13 @@ public class PLPAssembler implements Assembler
 	
 	private String dataDirective() throws AssemblerException
 	{
-		expectedNextToken(".data directive");
+		//TODO: give a meaningful argument
+		if (!nextToken(1))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR, ".data", "data directive needs the address");
 		
-		ensureTokenEquality("(.data) Expected a number, found: ", PLPTokenType.NUMERIC);
+		//TODO: give a meaningful argument
+		if(!currentToken.getTypeName().equals(PLPTokenType.NUMERIC.name()))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, currentToken.getValue(), "Expected a number");
 	
 		if (currentRegion != 2)
 		{
@@ -1181,12 +1526,21 @@ public class PLPAssembler implements Assembler
 		{
 			currentAddress = ISAUtil.sanitize32bits(currentToken.getValue());
 			
+			//TODO: After .data directive is implemented properly, change this exception throwing. Make it to pass through function throw_assembler_function
 			if (currentAddress < 0)
-				throw new AssemblerException("Line Number: "+ Integer.toString(lineNumber)+ " Starting address for .data is not defined.");
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, currentToken.getValue(), "Address value should be greater than 0");
 		}
-		catch (AssemblerException e)
+		catch (Exception e)
 		{
-			e.printStackTrace();
+			if( e instanceof NumberFormatException )
+			{
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, currentToken.getValue(), "Number should be within 32 bits");
+			}
+			else 
+			{
+				//TODO: May have to create a new category itself.
+				//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+			}
 		}
 		currentDataAddress = currentAddress;	
 		
@@ -1195,34 +1549,51 @@ public class PLPAssembler implements Assembler
 	
 	private String equDirective() throws AssemblerException
 	{
-		expectedNextToken(".equ directive");
+		//TODO: give a meaningful argument
+		if (!nextToken(1))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR, ".equ", "EQU directive needs a string followed by value for it");
 		
-		ensureTokenEquality("(.equ) Expected a string, found: ", PLPTokenType.STRING);
+		//TODO: give a meaningful argument
+		if(!currentToken.getTypeName().equals(PLPTokenType.STRING.name()))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, currentToken.getValue(), "Expected a string");
 		
 		String symbol = currentToken.getValue();
 		if (symbolTable.containsKey(symbol))
 		{
-			throw new AssemblerException("Line Number: " + Integer.toString(lineNumber) + " (.equ) Symbol table already contains: "
-					+ currentToken.getValue());
+			throw_assembler_exception(AssemblerException.DUPLICATE_LABEL_ERROR, AssemblerException.DUPLICATE_LABEL_SUB_ERROR, currentToken.getValue(), "Already a label with the given name exists in the program");
+			/*throw new AssemblerException("Line Number: " + Integer.toString(lineNumber) + " (.equ) Symbol table already contains: "
+					+ currentToken.getValue());*/
 		}
 		
-		expectedNextToken(".equ directive");
+		//TODO: give a meaningful argument
+		if (!nextToken(1))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_MISSING_TOKEN_ERROR, ".equ", "EQU directive needs a number");
 		
-		ensureTokenEquality("(.equ) Expected an address after symbol, found: ",
-				PLPTokenType.NUMERIC);
+		//TODO: give a meaningful argument
+		if(!currentToken.getTypeName().equals(PLPTokenType.NUMERIC.name()))
+			throw_assembler_exception(AssemblerException.ASSEMBLER_DIRECTIVE_ERROR, AssemblerException.ASSEMBLER_DIRECTIVE_INVALID_TOKEN_ERROR, currentToken.getValue(), "Expected a number");
 		
 		long value = Long.MIN_VALUE;
 		try
 		{
 			value = ISAUtil.sanitize32bits(currentToken.getValue());
 		}
-		catch (AssemblerException e)
+		catch (Exception e)
 		{
-			e.printStackTrace();
+			if( e instanceof NumberFormatException )
+			{
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, currentToken.getValue(), "Number should be within 32 bits");
+			}
+			else 
+			{
+				//TODO: Have to create a new category
+				//throw_assembler_exception(e.getMessage(), AssemblerException.SANITIZE_ERROR);
+			}
 		}
 		
 		if (value < 0)
 		{
+			//TODO after implementing equ directive, following exception has to go through throw_assembler_exception function
 			throw new AssemblerException(
 					"Line Number: " + Integer.toString(lineNumber) + " (.equ) Could not process address after symbol, found: "
 							+ currentToken.getValue());
@@ -1251,8 +1622,8 @@ public class PLPAssembler implements Assembler
 			if(lstArguments.length > 0)
 			{
 				
-				expectedNextToken(currentToken.getValue() + " instruction needs more tokens");
-				ensureArgumentEquality(strInstruction, lstArguments[0] );
+				expectedNextToken("Expecting a "+lstArguments[0].name());
+				ensureArgumentEquality("Expecting a "+lstArguments[0].name(), lstArguments[0] );
 				
 				strFirstArgument = currentToken.getValue();
 				
@@ -1260,24 +1631,24 @@ public class PLPAssembler implements Assembler
 				
 				if(lstArguments.length > 1)
 				{
-					expectedNextToken(strInstruction + " operation");
-					ensureTokenEquality("(" + strInstruction + ") Expected a comma after "
-							+ strFirstArgument + " found: ", PLPTokenType.COMMA);
+					expectedNextToken("");
+					ensureTokenEquality( "Expected a comma after "
+							+ strFirstArgument, PLPTokenType.COMMA);
 
-					expectedNextToken(strInstruction + " operation");
-					ensureArgumentEquality(strInstruction, lstArguments[1]);
+					expectedNextToken("Expecting a "+lstArguments[1].name());
+					ensureArgumentEquality("Expecting a "+lstArguments[1].name(), lstArguments[1]);
 						
 					strSecondArgument = currentToken.getValue();
 					preprocessedInstruction += (" " + strSecondArgument);
 						
 					if(lstArguments.length > 2)
 					{
-						expectedNextToken(strInstruction + " operation");
-						ensureTokenEquality("(" + strInstruction + ") Expected a comma after "
-									+ strSecondArgument + " found: ", PLPTokenType.COMMA);
+						expectedNextToken("");
+						ensureTokenEquality("Expected a comma after "
+									+ strSecondArgument, PLPTokenType.COMMA);
 							
-						expectedNextToken(strInstruction + " operation");
-						ensureArgumentEquality(strInstruction, lstArguments[2]);
+						expectedNextToken("Expecting a "+lstArguments[2].name());
+						ensureArgumentEquality("Expecting a "+lstArguments[2].name(), lstArguments[2]);
 							
 						preprocessedInstruction += (" " + currentToken.getValue());
 					}
@@ -1307,9 +1678,8 @@ public class PLPAssembler implements Assembler
 		
 		if (symbolTable.containsKey(labelValue))
 		{
-			throw new AssemblerException("Line Number: "+ Integer.toString(lineNumber)+" (" + directiveToken.getTypeName()
-					+ ") preprocessing label failure. Symbol already defined, found: "
-					+ directiveToken.getValue());
+			throw_assembler_exception(AssemblerException.DUPLICATE_LABEL_ERROR, AssemblerException.DUPLICATE_LABEL_SUB_ERROR, labelValue, "Already label with same name have been declared somewhere else in the program");
+			//throw_assembler_exception("label - "+labelValue + " already exists", AssemblerException.DUPLICATE_LABEL_ERROR);
 		}
 		else
 		{
@@ -1335,13 +1705,12 @@ public class PLPAssembler implements Assembler
 		return true;
 	}
 	
-	private void expectedNextToken(String location) throws AssemblerException
+	private void expectedNextToken(String errorInfo) throws AssemblerException
 	{
 		String previousToken = currentToken.getValue();
 		//String strLineNumber = String.valueOf(lineNumber);
 		if (!nextToken(1))
-			throw new AssemblerException("Line Number: "+String.valueOf(lineNumber)+" Previous token->(" + previousToken
-					+ ") Unexpected end of token stream at " + location);
+			throw_assembler_exception(AssemblerException.INVALID_NUMBER_OF_TOKENS_ERROR, AssemblerException.INVALID_NUMBER_OF_TOKENS_MISSING_ERROR, previousToken, errorInfo);
 		
 	}
 	
@@ -1349,19 +1718,23 @@ public class PLPAssembler implements Assembler
 	{
 		if(argument.equals(ArgumentType.REGISTER) && !isRegister(currentToken))
 		{
-			throw new AssemblerException("Line Number: "+Integer.toString(lineNumber)+ " expected a register but got "+ currentToken.getValue()+" at "+message);
+			throw_assembler_exception(AssemblerException.INVALID_REGISTER_ERROR, AssemblerException.INVALID_REGISTEr_NOT_REGISTER_ERROR, currentToken.getValue(), message);
+			//throw_assembler_exception("Expected a register but got "+ currentToken.getValue(), AssemblerException.TOKEN_NOT_MATCHING_ERROR);
 		}
 		else if(argument.equals(ArgumentType.NUMBER_LITERAL) && !isNumericValue(currentToken))
 		{
-			throw new AssemblerException("Line Number: "+Integer.toString(lineNumber)+ " expected a numeric value but got "+ currentToken.getValue()+" at "+message);
+			throw_assembler_exception(AssemblerException.INVALID_NUMBER_ERROR, AssemblerException.INVALID_NUMBER_SUB_ERROR, currentToken.getValue(), message);
+			//throw_assembler_exception("Expected a number but got "+ currentToken.getValue(), AssemblerException.TOKEN_NOT_MATCHING_ERROR);
 		}
 		else if(argument.equals(ArgumentType.MEMORY_LOCATION) && !isMemoryLocation(currentToken))
 		{
-			throw new AssemblerException("Line Number: "+Integer.toString(lineNumber)+ " expected a memory location (represented -> <<number>>(<<register>>) example - 4($t3) ) but got "+ currentToken.getValue()+" at "+message);
+			throw_assembler_exception(AssemblerException.INVALID_NUMBER_OF_TOKENS_ERROR, AssemblerException.INVALID_NUMBER_OF_TOKENS_NOT_MATCHING_ERROR, currentToken.getValue(), message);
+			//throw_assembler_exception("Expected a memory location but got "+ currentToken.getValue(), AssemblerException.TOKEN_NOT_MATCHING_ERROR);
 		}
 		else if(argument.equals(ArgumentType.LABEL_LITERAL) && !isLabel(currentToken))
 		{
-			throw new AssemblerException("Line Number: "+Integer.toString(lineNumber) + " expected a label but got "+ currentToken.getValue()+" at "+ message);
+			throw_assembler_exception(AssemblerException.INVALID_NUMBER_OF_TOKENS_ERROR, AssemblerException.INVALID_NUMBER_OF_TOKENS_NOT_MATCHING_ERROR, currentToken.getValue(), message);
+			//throw_assembler_exception("Expected a label but got "+ currentToken.getValue(), AssemblerException.TOKEN_NOT_MATCHING_ERROR);
 		}
 		else
 		{
@@ -1372,13 +1745,14 @@ public class PLPAssembler implements Assembler
 	
 	private void ensureTokenEquality(String message, PLPTokenType compareTo) throws AssemblerException
 	{
-		String sMessage = "Line Number: " +Integer.toString(lineNumber) + " " + message + currentToken.getValue();
+		String sMessage =  message + "Got token type - "+currentToken.getValue();
 		
 		if (compareTo.equals(PLPTokenType.INSTRUCTION))
 		{
 			if(!isInstruction(currentToken))
 			{
-				throw new AssemblerException(sMessage);
+				//TODO: WHERE IT IS USED INSIDE this function?
+				//throw_assembler_exception(sMessage, AssemblerException.TOKEN_NOT_MATCHING_ERROR);
 			}
 			return;
 		}
@@ -1386,7 +1760,7 @@ public class PLPAssembler implements Assembler
 		{
 			if(!isLabel(currentToken))
 			{
-				throw new AssemblerException(sMessage);
+				throw_assembler_exception(AssemblerException.INVALID_NUMBER_OF_TOKENS_ERROR, AssemblerException.INVALID_NUMBER_OF_TOKENS_NOT_MATCHING_ERROR, currentToken.getValue(), message);
 			}
 			
 			return;
@@ -1395,7 +1769,7 @@ public class PLPAssembler implements Assembler
 		{
 			if(!isRegister(currentToken))
 			{
-				throw new AssemblerException(sMessage);
+				throw_assembler_exception(AssemblerException.INVALID_REGISTER_ERROR, AssemblerException.INVALID_REGISTEr_NOT_REGISTER_ERROR, currentToken.getValue(), message);
 			}
 			
 			return;
@@ -1404,14 +1778,15 @@ public class PLPAssembler implements Assembler
 		{
 			if(!isMemoryLocation(currentToken))
 			{
-				throw new AssemblerException(sMessage);
+				//TODO:: IS this used in the context of this function?
+				//throw_assembler_exception(sMessage, AssemblerException.TOKEN_NOT_MATCHING_ERROR);
 			}
 			
 			return;
 		}
 		
 		if (!currentToken.getTypeName().equals(compareTo.name()))
-			throw new AssemblerException(sMessage);
+			throw_assembler_exception(AssemblerException.INVALID_NUMBER_OF_TOKENS_ERROR, AssemblerException.INVALID_NUMBER_OF_TOKENS_NOT_MATCHING_ERROR, currentToken.getValue(), message);
 		
 	}
 	
@@ -1419,7 +1794,7 @@ public class PLPAssembler implements Assembler
 	private void ensureTokenEquality(String message,
 			PLPTokenType... compareTo) throws AssemblerException
 	{
-		String sMessage = "Line Number: " +Integer.toString(lineNumber) + " " + message + currentToken.getValue();
+		//String sMessage = message + "Got token type = "+currentToken.getValue();
 		for (PLPTokenType comparison : compareTo)
 		{
 			if (comparison.equals(PLPTokenType.INSTRUCTION))
@@ -1443,7 +1818,7 @@ public class PLPAssembler implements Assembler
 				return;
 		}
 		
-		throw new AssemblerException(sMessage);
+		throw_assembler_exception(AssemblerException.INVALID_NUMBER_OF_TOKENS_ERROR, AssemblerException.INVALID_NUMBER_OF_TOKENS_NOT_MATCHING_ERROR, currentToken.getValue(), message);
 	}
 	
 	private boolean isMemoryLocation(Token token)
@@ -1508,6 +1883,14 @@ public class PLPAssembler implements Assembler
 		else
 			return false;
 		
+	}
+	
+	private boolean isLabelDeclaration(Token token)
+	{
+		if(token.getTypeName() == PLPTokenType.LABEL_COLON.name())
+			return true;
+		else
+			return false;
 	}
 	
 	private boolean isLabel(Token token)

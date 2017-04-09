@@ -8,12 +8,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
+import edu.asu.plp.tool.backend.EventRegistry;
 import edu.asu.plp.tool.backend.isa.*;
+import edu.asu.plp.tool.backend.isa.events.SimulatorControlEvent;
 import edu.asu.plp.tool.backend.isa.exceptions.AssemblerException;
 import edu.asu.plp.tool.backend.plpisa.assembler2.*;
 
@@ -30,10 +33,19 @@ import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.eventbus.DeadEvent;
+import com.google.common.eventbus.Subscribe;
 
 import edu.asu.SimulatorFiles.*;
 import edu.asu.plp.tool.backend.plpisa.sim.*;
+import edu.asu.plp.tool.prototype.ApplicationSettings;
+import edu.asu.plp.tool.prototype.ProjectAssemblyDetails;
+import edu.asu.plp.tool.prototype.Main.ApplicationEventBusEventHandler;
 import edu.asu.plp.tool.prototype.model.Project;
+import edu.asu.plp.tool.prototype.model.Theme;
+import edu.asu.plp.tool.prototype.model.ThemeRequestCallback;
+import edu.asu.plp.tool.prototype.view.ConsolePane;
+import javafx.stage.Stage;
 
 
 /**
@@ -46,6 +58,12 @@ public class PLPWebController {
 	
 	String fileStoragePath = "C:/Users/sjjai/Desktop/PLP/";
 	HttpSession session;
+	private boolean isSimulationRunning;
+	ASMImage image = null;
+	private Thread simRunThread;
+	
+	private Stage stage;
+	private ConsolePane console;
 
 	@RequestMapping("/register")
 	@CrossOrigin
@@ -109,46 +127,62 @@ public class PLPWebController {
     public String assembleText(@RequestBody AssemblyInfo assembly, HttpServletRequest request, HttpSession session) throws AssemblerException, JsonProcessingException {
     	
     	System.out.println("in assemble");
-    	String sessKey = assembly.getSessionKey();
-    	System.out.println("Sess: " + assembly.getSessionKey());
-    	session = PLPUserDB.getInstance().getUser(sessKey).getUserSession();
-    	
     	String response = "";
     	
-    	String code = assembly.getCode();
+    	try {
+    		ApplicationSettings.initialize();
+    		ApplicationSettings.loadFromFile("settings/plp-tool.settings");
+    		EventRegistry.getGlobalRegistry().register(new ApplicationEventBusEventHandler());
     	
-    	WebASMFile asmFile = new WebASMFile(code, "main.asm");
-    	System.out.println("code: " + code);
-    	asmFile.setContent(code);
-    	List<ASMFile> listASM = new ArrayList<ASMFile>();
-    	listASM.add(asmFile);
+	    	String sessKey = assembly.getSessionKey();
+	    	System.out.println("Sess: " + assembly.getSessionKey());
+	    	session = PLPUserDB.getInstance().getUser(sessKey).getUserSession();
+	    	
+	    	String code = assembly.getCode();
+	    	
+	    	WebASMFile asmFile = new WebASMFile(code, "main.asm");
+	    	System.out.println("code: " + code);
+	    	asmFile.setContent(code);
+	    	List<ASMFile> listASM = new ArrayList<ASMFile>();
+	    	listASM.add(asmFile);
+	    	
+	    	WebASMFile asmFile2 = new WebASMFile(code, "main.asm");
+	    	//System.out.println("code: " + code);
+	    	asmFile2.setContent(code);
+	    	//listASM.add(asmFile);
+	    	
+	    	
+	    	Assembler assembler = new PLPAssembler();
+	    	
+	    	image = assembler.assemble(listASM);
+	    	
+	    	System.out.println("IMAGE:    " + image);
+	    	
+	    	System.out.println("ID: " + session.getId());
+	    	
+	    	session.setAttribute("ASMImage", image);
+	    	
+	    	//System.out.println(image.getDisassemblyInfo());
+	    	
+	//    	ObjectMapper mapper = new ObjectMapper();
+	//    	String jsonInString = mapper.writeValueAsString(image);
+	//    	System.out.println("JSON IMG STRING: " + jsonInString);
+	//    	
+	    	
+	//    	response = "\"status\":\"ok\"";
+	//    	response += ",\"asmJson\":" + jsonInString;
+	    	
     	
-    	Assembler assembler = new PLPAssembler();
-    	
-    	ASMImage image = assembler.assemble(listASM);
-    	
-    	System.out.println("IMAGE:    " + image);
-    	
-    	
-    	System.out.println("ID: " + session.getId());
-    	
-    	session.setAttribute("ASMImage", image);
-    	
-    	//System.out.println(image.getDisassemblyInfo());
-    	
-//    	ObjectMapper mapper = new ObjectMapper();
-//    	String jsonInString = mapper.writeValueAsString(image);
-//    	System.out.println("JSON IMG STRING: " + jsonInString);
-//    	
-    	
-//    	response = "\"status\":\"ok\"";
-//    	response += ",\"asmJson\":" + jsonInString;
-    	
-    	
-    	
+    	}
+    	catch (AssemblerException exception)
+		{
+    		System.out.println(exception.getLocalizedMessage());
+		}
     	return "{"+response+"}";
     }
     
+	
+
     @RequestMapping(value = "/Simulator" , method = RequestMethod.GET)
     @CrossOrigin
     public String Simulator(HttpServletRequest request, HttpSession session) throws IOException {
@@ -162,10 +196,88 @@ public class PLPWebController {
     	System.out.println("ID in simulate: " + session.getId());
     	
     	//System.out.println("ASM OBJ is Sim :"  +  session.getAttribute("ASMImage"));
-    	ASMImage image = (ASMImage) session.getAttribute("ASMImage");
+    	image = (ASMImage) session.getAttribute("ASMImage");
     	System.out.println("ASM OBJ is Sim :" + image);
 
+    	
+    	EventRegistry.getGlobalRegistry().post(
+				new SimulatorControlEvent("load", image));
+    	
     	response = "{\"status\":\"ok\"}";
     	return response;
     }
+    
+    // Run Simulation -- abhilash
+    
+    @RequestMapping(value = "/Run" , method = RequestMethod.GET)
+    @CrossOrigin
+    public String Run(HttpServletRequest request, HttpSession session) throws IOException {
+    	System.out.println("in Run method");
+    	String response = "";
+    	
+    	
+			EventRegistry.getGlobalRegistry().post(
+					new SimulatorControlEvent("load", image));
+			
+			isSimulationRunning = true;
+			simRunThread = new Thread(new Runnable(){
+				public void run()
+				{
+					while (isSimulationRunning) {
+						EventRegistry.getGlobalRegistry().post(new SimulatorControlEvent("step", null));
+						try {
+							Thread.sleep(100);
+						} catch (InterruptedException e) {
+						}
+					}
+				}
+			});
+			simRunThread.start();
+			
+		
+    	
+    	
+    	response = "{\"status\":\"ok\"}";
+    	return response;
+    }
+    
+    // new class copied form main.java
+    
+    public class ApplicationEventBusEventHandler
+	{
+		private ApplicationEventBusEventHandler()
+		{
+			
+		}
+		
+		@Subscribe
+		public void applicationThemeRequestCallback(ThemeRequestCallback event)
+		{
+			if (event.requestedTheme().isPresent())
+			{
+				Theme applicationTheme = event.requestedTheme().get();
+				try
+				{
+					stage.getScene().getStylesheets().clear();
+					stage.getScene().getStylesheets().add(applicationTheme.getPath());
+					return;
+				}
+				catch (MalformedURLException e)
+				{
+					console.warning("Unable to load application theme "
+							+ applicationTheme.getName());
+					return;
+				}
+			}
+			
+			console.warning("Unable to load application theme.");
+		}
+		
+		@Subscribe
+		public void deadEvent(DeadEvent event)
+		{
+			System.out.println("Dead Event");
+			System.out.println(event.getEvent());
+		}
+	}
 }

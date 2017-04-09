@@ -23,11 +23,8 @@ public interface IOMemoryModule {
 	boolean isAddressWithModule(long addr);
 	String introduce();
 	void reset();
-	int gui_eval(Object x);
 	int eval();
 	boolean isPhantom();
 	boolean isThreaded();
 	LongProperty getMemoryValueProperty(long address);
-	
-
 }
