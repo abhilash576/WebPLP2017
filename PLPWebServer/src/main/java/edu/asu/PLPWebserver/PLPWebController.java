@@ -277,6 +277,7 @@ public class PLPWebController {
 		public void deadEvent(DeadEvent event)
 		{
 			System.out.println("Dead Event");
+			System.out.println("Dead Event");
 			System.out.println(event.getEvent());
 			System.out.println(event.getSource());
 			System.out.println(event.getClass());
