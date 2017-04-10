@@ -146,6 +146,11 @@ public class PLPWebController {
 	    	List<ASMFile> listASM = new ArrayList<ASMFile>();
 	    	listASM.add(asmFile);
 	    	
+	    	//Multiple asm
+//	    	WebASMFile asmFile2 = new WebASMFile(code, "samm.asm");
+//	    	asmFile2.setContent(code);
+//	    	listASM.add(asmFile2);
+//	    	
 	    	
 	    	Assembler assembler = new PLPAssembler();
 	    	
@@ -273,6 +278,8 @@ public class PLPWebController {
 		{
 			System.out.println("Dead Event");
 			System.out.println(event.getEvent());
+			System.out.println(event.getSource());
+			System.out.println(event.getClass());
 		}
 	}
 }
