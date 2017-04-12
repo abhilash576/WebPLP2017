@@ -204,7 +204,7 @@ public class PLPWebController {
 //    				
 //    			}
 //    		}
-<<<<<<< HEAD
+
     		responseMap.put("status", "failed");
     		responseMap.put("message", exception.getLocalizedMessage());
     		
@@ -214,11 +214,6 @@ public class PLPWebController {
     			System.out.println("JSON parsing Error.");
     			e.printStackTrace();
     		}
-    		//response += ",\"message\" : \""+exception.getLocalizedMessage()+"\"";
-=======
-    		System.out.println("==" + exception.getLocalizedMessage().trim().toLowerCase());
-    		response += ",\"message\":\""+exception.getLocalizedMessage().trim()+"\"";
->>>>>>> d11f993ae6660132ca6556c4ecf86a295ec56998
     		System.out.println(response);
     		
 		}
