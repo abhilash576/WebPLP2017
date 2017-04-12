@@ -36,12 +36,16 @@ import com.google.common.eventbus.Subscribe;
 
 import edu.asu.SimulatorFiles.*;
 import edu.asu.plp.tool.backend.plpisa.sim.*;
+import edu.asu.plp.tool.core.ISAModule;
+import edu.asu.plp.tool.core.ISARegistry;
 import edu.asu.plp.tool.prototype.ApplicationSettings;
+import edu.asu.plp.tool.prototype.EmulationWindow;
 import edu.asu.plp.tool.prototype.ProjectAssemblyDetails;
 import edu.asu.plp.tool.prototype.Main.ApplicationEventBusEventHandler;
 import edu.asu.plp.tool.prototype.model.Project;
 import edu.asu.plp.tool.prototype.model.Theme;
 import edu.asu.plp.tool.prototype.model.ThemeRequestCallback;
+import edu.asu.plp.tool.prototype.util.Dialogues;
 import edu.asu.plp.tool.prototype.view.ConsolePane;
 import javafx.stage.Stage;
 
@@ -62,7 +66,10 @@ public class PLPWebController {
 	
 	private Stage stage;
 	private ConsolePane console;
-	private PLPSimulator activeSimulator = new PLPSimulator();
+	//private PLPSimulator activeSimulator = new PLPSimulator();
+	
+	private Simulator activeSimulator;
+	private EmulationWindow emulationWindow = null;
 	
 	
 
@@ -197,6 +204,7 @@ public class PLPWebController {
 //    				
 //    			}
 //    		}
+<<<<<<< HEAD
     		responseMap.put("status", "failed");
     		responseMap.put("message", exception.getLocalizedMessage());
     		
@@ -207,6 +215,10 @@ public class PLPWebController {
     			e.printStackTrace();
     		}
     		//response += ",\"message\" : \""+exception.getLocalizedMessage()+"\"";
+=======
+    		System.out.println("==" + exception.getLocalizedMessage().trim().toLowerCase());
+    		response += ",\"message\":\""+exception.getLocalizedMessage().trim()+"\"";
+>>>>>>> d11f993ae6660132ca6556c4ecf86a295ec56998
     		System.out.println(response);
     		
 		}
@@ -232,10 +244,32 @@ public class PLPWebController {
     	image = (ASMImage) session.getAttribute("ASMImage");
     	System.out.println("ASM OBJ is Sim :" + image);
 
-    	activeSimulator.startListening();
+    	String projectType = "plp";
+    	Optional<ISAModule> module = ISARegistry.get().lookupByProjectType(projectType);
     	
-    	EventRegistry.getGlobalRegistry().post(
-				new SimulatorControlEvent("load", image));
+    	if (module.isPresent())
+		{
+			ISAModule isa = module.get();
+			activeSimulator = isa.getSimulator();
+			activeSimulator.startListening();
+			
+			//emulationWindow = new EmulationWindow();
+			
+			EventRegistry.getGlobalRegistry().post(
+					new SimulatorControlEvent("load", image));
+			
+		}
+		else
+		{
+			String message = "No simulator is available for the project type: ";
+			System.out.println(message);
+			//Dialogues.showAlertDialogue(new IllegalStateException(message));
+		}
+    	
+    	//activeSimulator.startListening();
+    	
+//    	EventRegistry.getGlobalRegistry().post(
+//				new SimulatorControlEvent("load", image));
     	
     	response = "{\"status\":\"ok\"}";
     	return response;
@@ -274,6 +308,33 @@ public class PLPWebController {
     	response = "{\"status\":\"ok\"}";
     	return response;
     }
+    
+    
+    @RequestMapping(value = "/Stop" , method = RequestMethod.GET)
+    @CrossOrigin
+    public String Stop(HttpServletRequest request, HttpSession session) throws IOException {
+    	
+    	System.out.println("in Stop method");
+    	String response = "";
+    	
+    	EventRegistry.getGlobalRegistry().post(new SimulatorControlEvent("pause", null));
+		EventRegistry.getGlobalRegistry().post(new SimulatorControlEvent("reset", null));
+		isSimulationRunning = false;
+		if(simRunThread != null)
+		{
+			simRunThread.interrupt();
+			simRunThread = null;
+		}
+		
+		activeSimulator.stopListening();
+    	
+    	
+    	response = "{\"status\":\"ok\"}";
+    	return response;
+    }
+   
+    
+   
     
     // new class copied form main.java
     

@@ -289,10 +289,33 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
 		});
 		
 	};
+	
+	
+	$scope.stopsimulation = function() {
+        console.log("Stopping Simulation");
+		
+		$http({
+			method: 'GET',
+			url: 'http://localhost:12345/Stop',
+			headers: {'Content-Type': undefined},				
+		})	
+		.then(function successCallback(response) {
+			console.log("Success:" + JSON.stringify(response)) ;
+			// this callback will be called asynchronously
+			// when the response is available
+			}, function errorCallback(response) {
+						console.log("error");
+
+			// called asynchronously if an error occurs
+			// or server returns response with an error status.
+		});
+	
+	
+};
+	
 		$scope.run = function() {
 	        console.log("runnnning");
-			
-			
+	
 			//var jsonCode = JSON.parse(codeText);
 			
 			$http({
@@ -313,6 +336,8 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
 		
 		
 	};
+
+	
 
     $scope.openLED = function() {
         //console.log(Jquery.ui);
