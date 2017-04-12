@@ -64,6 +64,9 @@ public class PLPWebController {
 	
 	private Stage stage;
 	private ConsolePane console;
+	private PLPSimulator activeSimulator = new PLPSimulator();
+	
+	
 
 	@RequestMapping("/register")
 	@CrossOrigin
@@ -176,8 +179,26 @@ public class PLPWebController {
     	}
     	catch (AssemblerException exception)
 		{
-    		System.out.println(exception.getLocalizedMessage());
+    		//System.out.println(exception.getLocalizedMessage());
+    		response = "\"status\":\"error\"";
+    		//String errorMessage = exception.getLocalizedMessage();
+//    		for(int i =0;i<errorMessage.length();i++)
+//    		{
+//    			if(errorMessage.charAt(i) == ':')
+//    			{
+//    				//"dfsdfsfs":"sfsdfssfsd"
+//    				//errorMessage.
+//    			}
+//    			else if(errorMessage == "\n")
+//    			{
+//    				
+//    			}
+//    		}
+    		response += ",\"message\" : \""+exception.getLocalizedMessage()+"\"";
+    		System.out.println(response);
+    		
 		}
+    	
     	return "{"+response+"}";
     }
     
@@ -199,6 +220,7 @@ public class PLPWebController {
     	image = (ASMImage) session.getAttribute("ASMImage");
     	System.out.println("ASM OBJ is Sim :" + image);
 
+    	activeSimulator.startListening();
     	
     	EventRegistry.getGlobalRegistry().post(
 				new SimulatorControlEvent("load", image));
