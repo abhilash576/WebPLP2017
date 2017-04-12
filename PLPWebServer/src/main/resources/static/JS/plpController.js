@@ -1,4 +1,4 @@
-/**
+			/**
  * Created by nitingoel on 7/30/16.
  */
 
@@ -125,21 +125,11 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
 				alert("Server Error\nRedirecting to Google.com");
 				window.location.href = "https://www.google.com/";
                 } else {
-				/* 
-				ctr = 1;
-				str = 'sessionKey'+ctr;
-				while($cookies.get(str)!=null){
-					ctr+=1;
-					str = 'sessionKey'+ctr; 
-				}
-				*/
 				var cname = "sessionKey";
 				$cookies.put(cname,response.data.session_key
 				, {path : '/',});
 			}
-			var sessKey1 = $cookies.get("sessionKey");
-			console.log("register Session key: "  + sessKey1);
-			
+			var sessKey1 = $cookies.get("sessionKey");	
 
 		});
 		
@@ -209,7 +199,7 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
 	
 	
 	$scope.assembleFile = function() {
-        console.log("in assembly");
+        console.log("in Assembly");
 		var editor = ace.edit("editor");
 		var codeText = editor.getValue();
 		if (!(/\S/.test(codeText))){
@@ -229,35 +219,16 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
 			data: indata, 
 			
 				
-		})	
-		/*
-		.then(function successCallback(response) {
-			console.log("Success:" + JSON.stringify(response)) ;
-			// this callback will be called asynchronously
-			// when the response is available
-			}, function errorCallback(response) {
-						console.log("error");
-
-			// called asynchronously if an error occurs
-			// or server returns response with an error status.
-		});
-		*/
+		})
 		
-		.then(function(response){			 
+		.then(function(response){	
+			console.log("Assemble Status:" + response.data.status)
 			if(response.data.status == "ok"){
 				console.log("Success:" + JSON.stringify(response))
-				console.log(response.data.status)
-				console.log(JSON.stringify(response.data.asmJson))
-				
-				//console.log("ASM JSON: " + response.data.asmJson)
-				$cookies.put("asmStr", JSON.stringify(response.data.asmJson));
-				
-				var str = $cookies.get("asmStr")
-				console.log("Decoded cookie: " + str);
+				$('#consoleBox').children('span').text(" ");
 			}
 			else{
-				//console.log("Error in assembling: " + response);
-				console.log("MESSSSAGEEE:" + response.data.message)
+				console.log("Error:" + response.data.message)
 				var errorMessage =  response.data.message;
 				$('#consoleBox').children('span').text(errorMessage);
 			} 
@@ -269,23 +240,23 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
 	$scope.SimulateFile = function() {
         console.log("in Simulate");
 		
-		
-		//var jsonCode = JSON.parse(codeText);
-		
 		$http({
 			method: 'GET',
 			url: 'http://localhost:12345/Simulator',
 			headers: {'Content-Type': undefined},				
 		})	
-		.then(function successCallback(response) {
-			console.log("Success:" + JSON.stringify(response)) ;
-			// this callback will be called asynchronously
-			// when the response is available
-			}, function errorCallback(response) {
-						console.log("error");
-
-			// called asynchronously if an error occurs
-			// or server returns response with an error status.
+		.then(function(response){	
+			console.log("Simulator Status:" + response.data.status)
+			if(response.data.status == "ok"){
+				console.log("Success:" + JSON.stringify(response))
+				$('#consoleBox').children('span').text(" ");
+			}
+			else{
+				console.log("Error:" + response.data.message)
+				var errorMessage =  "NO ASM IMAGE FOUND!"
+				$('#consoleBox').children('span').text(errorMessage);
+			} 
+			
 		});
 		
 	};
