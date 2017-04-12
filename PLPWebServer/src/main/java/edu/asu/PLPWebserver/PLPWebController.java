@@ -56,7 +56,7 @@ import javafx.stage.Stage;
 @RestController
 public class PLPWebController {
 	
-	String fileStoragePath = "C:/Users/sjjai/Desktop/PLP/";
+	String fileStoragePath = "files/";
 	HttpSession session;
 	private boolean isSimulationRunning;
 	ASMImage image = null;
@@ -149,11 +149,11 @@ public class PLPWebController {
 	    	List<ASMFile> listASM = new ArrayList<ASMFile>();
 	    	listASM.add(asmFile);
 	    	
-	    	WebASMFile asmFile2 = new WebASMFile(code, "main.asm");
-	    	//System.out.println("code: " + code);
-	    	asmFile2.setContent(code);
-	    	//listASM.add(asmFile);
-	    	
+	    	//Multiple asm
+//	    	WebASMFile asmFile2 = new WebASMFile(code, "samm.asm");
+//	    	asmFile2.setContent(code);
+//	    	listASM.add(asmFile2);
+//	    	
 	    	
 	    	Assembler assembler = new PLPAssembler();
 	    	
@@ -299,7 +299,10 @@ public class PLPWebController {
 		public void deadEvent(DeadEvent event)
 		{
 			System.out.println("Dead Event");
+			System.out.println("Dead Event");
 			System.out.println(event.getEvent());
+			System.out.println(event.getSource());
+			System.out.println(event.getClass());
 		}
 	}
 }
