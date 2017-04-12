@@ -4,8 +4,6 @@
 package edu.asu.PLPWebserver;
 
 
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -20,7 +18,7 @@ import edu.asu.plp.tool.backend.isa.events.SimulatorControlEvent;
 import edu.asu.plp.tool.backend.isa.exceptions.AssemblerException;
 import edu.asu.plp.tool.backend.plpisa.assembler2.*;
 
-
+import org.json.JSONObject;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -73,6 +71,7 @@ public class PLPWebController {
 	public String register(@RequestParam(value="un", defaultValue="guestUser") String un, HttpServletRequest request) {
 		String response = "";
 		String sessionKey;
+		Map<String, String> responseMap = new HashMap<String, String> ();
 //		sessionKey = PLPUserDB.getInstance().registerNewUser(un);
 //		if(sessionKey < 0){
 //			response += "\"status\":\"failed\",\"session_key\":-1";
@@ -83,10 +82,18 @@ public class PLPWebController {
 		session = request.getSession();
 		sessionKey = session.getId();
 		PLPUserDB.getInstance().registerNewUser(un, session, sessionKey	);
-		if(session.isNew())
-			response += "\"status\":\"successs\",\"session_key\":\"" + sessionKey + "\"";
+		responseMap.put("status", "success");
+		responseMap.put("session_key", sessionKey);
+
+		try {
+			response = new ObjectMapper().writeValueAsString(responseMap);
+		} catch (JsonProcessingException e) {
+			System.out.println("JSON parsing Error.");
+			e.printStackTrace();
+		}
+		//response += "\"status\":\"successs\",\"session_key\":\"" + sessionKey + "\"";
 		System.out.println(response);
-		return "{"+response+"}";
+		return response;
 	}
 
     @RequestMapping(value = "/uploadFile" , method = RequestMethod.POST)
@@ -131,7 +138,7 @@ public class PLPWebController {
     	
     	System.out.println("in assemble");
     	String response = "";
-    	
+    	Map<String, String> responseMap = new HashMap<String, String> ();
     	try {
     		ApplicationSettings.initialize();
     		ApplicationSettings.loadFromFile("settings/plp-tool.settings");
@@ -156,13 +163,9 @@ public class PLPWebController {
 //	    	
 	    	
 	    	Assembler assembler = new PLPAssembler();
-	    	
-	    	image = assembler.assemble(listASM);
-	    	
-	    	System.out.println("IMAGE:    " + image);
-	    	
+	    	image = assembler.assemble(listASM);	    	
+	    	//System.out.println("IMAGE:    " + image);	    	
 	    	System.out.println("ID: " + session.getId());
-	    	
 	    	session.setAttribute("ASMImage", image);
 	    	
 	    	//System.out.println(image.getDisassemblyInfo());
@@ -174,13 +177,13 @@ public class PLPWebController {
 	    	
 	//    	response = "\"status\":\"ok\"";
 	//    	response += ",\"asmJson\":" + jsonInString;
-	    	
+	    	responseMap.put("status", "ok");
     	
     	}
     	catch (AssemblerException exception)
 		{
     		//System.out.println(exception.getLocalizedMessage());
-    		response = "\"status\":\"error\"";
+    		//response = "\"status\":\"error\"";
     		//String errorMessage = exception.getLocalizedMessage();
 //    		for(int i =0;i<errorMessage.length();i++)
 //    		{
@@ -194,12 +197,21 @@ public class PLPWebController {
 //    				
 //    			}
 //    		}
-    		response += ",\"message\" : \""+exception.getLocalizedMessage()+"\"";
+    		responseMap.put("status", "failed");
+    		responseMap.put("message", exception.getLocalizedMessage());
+    		
+    		try {
+    			response = new ObjectMapper().writeValueAsString(responseMap);
+    		} catch (JsonProcessingException e) {
+    			System.out.println("JSON parsing Error.");
+    			e.printStackTrace();
+    		}
+    		//response += ",\"message\" : \""+exception.getLocalizedMessage()+"\"";
     		System.out.println(response);
     		
 		}
     	
-    	return "{"+response+"}";
+    	return response;
     }
     
 	

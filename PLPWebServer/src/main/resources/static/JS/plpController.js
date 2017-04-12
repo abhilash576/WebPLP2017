@@ -257,6 +257,9 @@ app.controller('idectrl', [ '$scope', '$cookies', '$http', function( $scope, $co
 			}
 			else{
 				//console.log("Error in assembling: " + response);
+				console.log("MESSSSAGEEE:" + response.data.message)
+				var errorMessage =  response.data.message;
+				$('#consoleBox').children('span').text(errorMessage);
 			} 
 			
 		});
