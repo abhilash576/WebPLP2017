@@ -52,7 +52,7 @@ import javafx.stage.Stage;
 
 
 /**
- * @author ngoel2
+ * @author ngoel2, Sumeet Jain, Abhilash Malla
  *
  */
 
@@ -61,7 +61,7 @@ public class PLPWebController {
 	private final String PROJECT_TYPE = "plp";
 	String fileStoragePath = "files/";
 	HttpSession session;
-	private boolean isSimulationRunning;
+	//private boolean isSimulationRunning;
 	ASMImage image = null;
 	private Thread simRunThread;
 
@@ -178,7 +178,6 @@ public class PLPWebController {
 
 		}
 
-
 		try {
 			response = new ObjectMapper().writeValueAsString(responseMap);
 		} catch (JsonProcessingException e) {
@@ -198,9 +197,6 @@ public class PLPWebController {
 		Map<String, String> responseMap = new HashMap<String, String> ();
 		String response = "";
 
-		ParseTxtFile ptf = new ParseTxtFile();
-		//ptf.mainfunc();
-
 		session = this.session;
 		System.out.println("ID in simulate: " + session.getId());
 
@@ -211,28 +207,37 @@ public class PLPWebController {
 		if(image == null){
 			System.out.println("NO ASM IMAGE FOUND!");
 			responseMap.put("status", "failed");
+			responseMap.put("simError", "no-asm");
+			session.setAttribute("simulationSuccess", false);
+			session.setAttribute("simulationError", "no-asm");
+
 		}
 		else{
-			responseMap.put("status", "ok");
 			Optional<ISAModule> module = ISARegistry.get().lookupByProjectType(PROJECT_TYPE);
 
 			if (module.isPresent())
 			{
+				responseMap.put("status", "ok");
 				ISAModule isa = module.get();
 				activeSimulator = isa.getSimulator();
 				activeSimulator.startListening();
 
 				EventRegistry.getGlobalRegistry().post(
 						new SimulatorControlEvent("load", image));
+				session.setAttribute("simulationSuccess", true);
 
 			}
 			else
-			{
-				String message = "No simulator is available for the project type: ";
-				System.out.println(message);
-				//Dialogues.showAlertDialogue(new IllegalStateException(message));
+			{	responseMap.put("status", "failed");
+			responseMap.put("simError", "no-sim");
+			String message = "No simulator is available for the project type: ";
+			System.out.println(message);
+			//Dialogues.showAlertDialogue(new IllegalStateException(message));
+			session.setAttribute("simulationSuccess", false);
+			session.setAttribute("simulationError", "no-sim");
 			}
 		}
+
 		try {
 			response = new ObjectMapper().writeValueAsString(responseMap);
 		} catch (JsonProcessingException e) {
@@ -242,37 +247,47 @@ public class PLPWebController {
 		return response;
 	}
 
-	// Run Simulation -- abhilash
 
+
+	// Run Simulation -- abhilash
 	@RequestMapping(value = "/Run" , method = RequestMethod.GET)
 	@CrossOrigin
 	public String Run(HttpServletRequest request, HttpSession session) throws IOException {
 		System.out.println("in Run method");
+		Map<String, String> responseMap = new HashMap<String, String> ();
 		String response = "";
 
+		if((boolean) session.getAttribute("simulationSuccess")){
+			EventRegistry.getGlobalRegistry().post(
+					new SimulatorControlEvent("load", image));
 
-		EventRegistry.getGlobalRegistry().post(
-				new SimulatorControlEvent("load", image));
-
-		isSimulationRunning = true;
-		simRunThread = new Thread(new Runnable(){
-			public void run()
-			{
-				while (isSimulationRunning) {
-					EventRegistry.getGlobalRegistry().post(new SimulatorControlEvent("step", null));
-					try {
-						Thread.sleep(100);
-					} catch (InterruptedException e) {
+			session.setAttribute("isSimulationRunning", true);
+			simRunThread = new Thread(new Runnable(){
+				public void run()
+				{
+					while ((boolean) (session.getAttribute("isSimulationRunning"))) {
+						EventRegistry.getGlobalRegistry().post(new SimulatorControlEvent("step", null));
+						try {
+							Thread.sleep(100);
+						} catch (InterruptedException e) {
+						}
 					}
 				}
-			}
-		});
-		simRunThread.start();
+			});
+			simRunThread.start();
+			responseMap.put("status", "ok");
+		}
+		else{
+			responseMap.put("status", "failed");
+		}
+		
+		try {
+			response = new ObjectMapper().writeValueAsString(responseMap);
+		} catch (JsonProcessingException e) {
+			System.out.println("JSON parsing Error.");
+			e.printStackTrace();
+		}
 
-
-
-
-		response = "{\"status\":\"ok\"}";
 		return response;
 	}
 
@@ -286,7 +301,7 @@ public class PLPWebController {
 
 		EventRegistry.getGlobalRegistry().post(new SimulatorControlEvent("pause", null));
 		EventRegistry.getGlobalRegistry().post(new SimulatorControlEvent("reset", null));
-		isSimulationRunning = false;
+		session.setAttribute("isSimulationRunning", false);
 		if(simRunThread != null)
 		{
 			simRunThread.interrupt();
